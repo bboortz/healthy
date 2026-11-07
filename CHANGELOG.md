@@ -74,3 +74,18 @@ CI + release workflow (HC-002).
   via `pipx environment --value PIPX_BIN_DIR` and `mkdir -p ~/.local/bin`
   before the symlink. Previous recipe hard-coded `~/.local/bin/python-zig`
   which doesn't exist until pipx creates it on a specific runner.
+- **`release.yml` — `checks: read` permission**: the "Assert CI is green"
+  step calls `gh api repos/.../check-runs`, which the default
+  `GITHUB_TOKEN` cannot access without an explicit `checks: read` scope.
+  The workflow previously declared only `contents: write` and failed with
+  `403 "Resource not accessible by integration"` on the first attempt to
+  promote `dev`. Now declares both. `v0.1.0`'s git tag stays on the
+  bootstrap merge SHA (`ac9c2af`); this fix is a post-tag main-branch
+  carry that folds into the next bumped VERSION.
+- **Acceptance test `test_HC_002_…` — fork bomb**: the Scenario-4
+  "force-fail" block contained a leftover `"$0"` placeholder that
+  recursively re-executed the script. Dormant before HC-002 merged
+  (origin/main had no `VERSION` to trigger the guard); once HC-002
+  merged, the guard passed and both local pre-push and CI full-check
+  hung forever. Line removed; the real assertion two lines below was
+  the only intended check.
