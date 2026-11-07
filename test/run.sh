@@ -1,10 +1,10 @@
 #!/bin/sh
 # Functional tests for hc. Needs: openssl, python3.
-#   ./build.sh && HC=./hc-x86_64-linux ./test/run.sh
+#   scripts/build.sh && HC=./bin/hc-x86_64-linux ./test/run.sh
 # Creates a private CA + server cert (ECDSA P-256) in a temp dir, starts a plain
 # HTTP server (:8080), a TLS 1.3 server (:8443) and a server that never answers (:8097).
 set -u
-HC=$(cd "$(dirname "${HC:-./hc-x86_64-linux}")" && pwd)/$(basename "${HC:-./hc-x86_64-linux}")
+HC=$(cd "$(dirname "${HC:-./bin/hc-x86_64-linux}")" && pwd)/$(basename "${HC:-./bin/hc-x86_64-linux}")
 here=$(cd "$(dirname "$0")" && pwd)
 work=$(mktemp -d)
 pids=""

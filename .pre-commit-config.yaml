@@ -1,0 +1,52 @@
+repos:
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        args: ["--severity=warning"]
+        files: \.(sh|bash)$
+
+  - repo: local
+    hooks:
+      - id: zig-fmt
+        name: zig fmt --check hc.zig
+        language: system
+        entry: zig fmt --check
+        files: ^hc\.zig$
+        pass_filenames: true
+
+      - id: verify-traceability
+        name: verify-traceability (story ↔ plan ↔ test ↔ CAP)
+        language: system
+        entry: bash scripts/verify-traceability.sh
+        pass_filenames: false
+        files: ^(docs/stories/|docs/plan/|docs/CAPABILITIES\.md|test/acceptance/)
+
+      - id: memory-size
+        name: memory/*.md ≤ 150 lines, CLAUDE.md ≤ 150 lines
+        language: system
+        entry: bash -c '
+          fail=0
+          for f in memory/*.md; do
+            [ "$(basename "$f")" = "MEMORY.md" ] && continue
+            n=$(wc -l < "$f")
+            if [ "$n" -gt 150 ]; then
+              echo "FAIL: $f has $n lines (limit 150)" >&2; fail=1
+            fi
+          done
+          if [ -f CLAUDE.md ]; then
+            n=$(wc -l < CLAUDE.md)
+            if [ "$n" -gt 150 ]; then
+              echo "FAIL: CLAUDE.md has $n lines (limit 150)" >&2; fail=1
+            fi
+          fi
+          exit $fail'
+        pass_filenames: false
+        files: ^(memory/.*\.md|CLAUDE\.md)$
+
+      - id: make-check-pre-push
+        name: make check (pre-push full local gate)
+        language: system
+        entry: make check
+        pass_filenames: false
+        stages: [pre-push]

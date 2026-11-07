@@ -28,12 +28,15 @@ IPv6 literals work in brackets: `http://[::1]:8080/`.
 Needs [Zig](https://ziglang.org/) **0.17.1**. The std TLS and `Io` APIs change between releases, so pin the version.
 
 ```sh
-./build.sh                          # x86_64-linux, TLS, trusts the CA given via --ca
-CA=ca.pem ./build.sh                # embed your private CA: no --ca needed at runtime
-TLS=0 ./build.sh                    # tcp/http only, about a quarter of the size
-TARGET=aarch64-linux ./build.sh     # also riscv64-linux, arm-linux-musleabihf, ...
-ZIG="python3 -m ziglang" ./build.sh # Zig from the `ziglang` PyPI package
+scripts/build.sh                            # x86_64-linux, TLS, trusts the CA given via --ca
+CA=ca.pem scripts/build.sh                  # embed your private CA: no --ca needed at runtime
+TLS=0 scripts/build.sh                      # tcp/http only, about a quarter of the size
+TARGET=aarch64-linux scripts/build.sh       # also riscv64-linux, arm-linux-musleabihf, ...
+ZIG="python3 -m ziglang" scripts/build.sh   # Zig from the `ziglang` PyPI package
 ```
+
+Outputs land under `bin/` (e.g. `bin/hc-x86_64-linux`). `make build` wraps this;
+`make check` runs the full local gate (lint + build ± TLS + cross + tests + traceability).
 
 Sizes (stripped, static, `ReleaseSmall`, baseline CPU features):
 
@@ -45,7 +48,7 @@ Sizes (stripped, static, `ReleaseSmall`, baseline CPU features):
 | arm32 (musleabihf) | 563 KB | not built |
 
 The x86_64 binary is covered by the test suite. The aarch64, riscv64 and arm32 binaries are
-cross-compiled but have **not been run** yet: try `./hc-riscv64-linux tcp://127.0.0.1:22` on the
+cross-compiled but have **not been run** yet: try `./bin/hc-riscv64-linux tcp://127.0.0.1:22` on the
 target before relying on them.
 
 ## Docker Compose
@@ -64,7 +67,9 @@ Works in a `FROM scratch` image: copy the single binary in, no shell or libc nee
 ## Test
 
 ```sh
-./build.sh && HC=./hc-x86_64-linux ./test/run.sh
+scripts/build.sh && HC=./bin/hc-x86_64-linux ./test/run.sh
+# or simply:
+make test
 ```
 
 Needs `openssl` and `python3`. It creates a throwaway CA, starts a plain HTTP server, a TLS 1.3
@@ -79,4 +84,4 @@ server and a server that never answers, then checks 28 cases, including the fail
 - **TLS 1.3 / 1.2:** the std client negotiates either; the tests only exercise TLS 1.3.
 - **Request:** `GET` over HTTP/1.0 with `Connection: close`; redirects are not followed.
 - **Zig CLI flag order:** per-module flags (`-target`, `-O`, ...) must come before `-M`. After it they are
-  silently ignored and you get a native Debug build (31 MB). `build.sh` gets this right.
+  silently ignored and you get a native Debug build (31 MB). `scripts/build.sh` gets this right.

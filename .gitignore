@@ -4,6 +4,9 @@ zig-pkg/
 *.o
 
 # build outputs
-hc-*
-hc_*
+bin/
 *.err
+
+# local-only
+.claude/
+resume.sh
