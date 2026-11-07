@@ -67,3 +67,10 @@ CI + release workflow (HC-002).
 
 - `.githooks/` directory (replaced by pre-commit framework managing
   `.git/hooks/` directly).
+
+### Fixed (HC-002)
+
+- **CI — Zig install on cold runners**: resolve `python-zig`'s install path
+  via `pipx environment --value PIPX_BIN_DIR` and `mkdir -p ~/.local/bin`
+  before the symlink. Previous recipe hard-coded `~/.local/bin/python-zig`
+  which doesn't exist until pipx creates it on a specific runner.

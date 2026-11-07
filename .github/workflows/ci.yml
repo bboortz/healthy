@@ -71,10 +71,17 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
 
       - name: Install Zig 0.17.1 via pipx
+        shell: bash
         run: |
           pipx install 'ziglang==0.17.1'
-          ln -sf "$HOME/.local/bin/python-zig" "$HOME/.local/bin/zig"
-          zig version
+          # pipx console-scripts go to $(pipx environment --value PIPX_BIN_DIR)
+          # which varies by runner ($HOME/.local/bin on ubuntu-latest, but the
+          # dir may not exist yet on a cold runner). Resolve explicitly:
+          PIPX_BIN=$(pipx environment --value PIPX_BIN_DIR)
+          mkdir -p "$HOME/.local/bin"
+          ln -sf "$PIPX_BIN/python-zig" "$HOME/.local/bin/zig"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/zig" version
 
       - name: make lint
         run: make lint
@@ -99,10 +106,17 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck openssl python3
 
       - name: Install Zig 0.17.1 via pipx
+        shell: bash
         run: |
           pipx install 'ziglang==0.17.1'
-          ln -sf "$HOME/.local/bin/python-zig" "$HOME/.local/bin/zig"
-          zig version
+          # pipx console-scripts go to $(pipx environment --value PIPX_BIN_DIR)
+          # which varies by runner ($HOME/.local/bin on ubuntu-latest, but the
+          # dir may not exist yet on a cold runner). Resolve explicitly:
+          PIPX_BIN=$(pipx environment --value PIPX_BIN_DIR)
+          mkdir -p "$HOME/.local/bin"
+          ln -sf "$PIPX_BIN/python-zig" "$HOME/.local/bin/zig"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/zig" version
 
       - name: Docs-only short-circuit
         if: needs.detect.outputs.docs_only == 'true'
