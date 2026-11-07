@@ -26,7 +26,8 @@ name: Release
         type: string
 
 permissions:
-  contents: write
+  contents: write  # fast-forward main + push tag
+  checks: read     # gh api repos/.../check-runs — "Full check" assertion
 
 jobs:
   promote:

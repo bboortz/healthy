@@ -85,27 +85,40 @@ assert_grep "^## \[v${v}\]" CHANGELOG.md
 # ----- Scenario 4 — verify-version-bumped behaviour ------------------------
 assert_exec scripts/verify-version-bumped.sh
 
-# Bypass path must succeed unconditionally.
+# Bypass path: HEALTHY_SKIP_VERSION_BUMP=1 always exits 0.
 assert_rc 0 env HEALTHY_SKIP_VERSION_BUMP=1 bash scripts/verify-version-bumped.sh
 
-# Non-bypass path: on a branch where VERSION differs from origin/main's, it
-# must pass. On this feat/HC-002 branch (which bumps 0.0.0→0.1.0 vs the
-# bootstrap main), this is the real test.
-assert_rc 0 bash scripts/verify-version-bumped.sh
-
-# Force-fail path: write VERSION identical to origin/main's VERSION (if the
-# upstream has one). If upstream doesn't have VERSION, the script short-circuits
-# with exit 0 — we exercise that branch separately in Scenario 4b below.
+# If origin/main has no VERSION yet, the script short-circuits with exit 0
+# (pre-HC-002 case). After HC-002 merges, origin/main has VERSION, and we
+# can exercise both the pass path and the force-fail path by temporarily
+# rewriting the working-tree VERSION file.
 if git rev-parse --verify --quiet origin/main >/dev/null 2>&1 \
    && git show origin/main:VERSION >/dev/null 2>&1; then
   orig=$(tr -d '[:space:]' < VERSION)
   mainver=$(git show origin/main:VERSION | tr -d '[:space:]')
+
+  # `env -u HEALTHY_SKIP_VERSION_BUMP` because the operator may have exported
+  # the bypass for the surrounding `git push` (legitimate — e.g. folding a
+  # fix into the current VERSION without bumping). Inside this test we need
+  # the gate to run for real, so strip the bypass for these two subprocesses.
+  # Same bug class beaconry caught as BC-071.
+
+  # Force-fail path: VERSION identical to origin/main's → gate MUST fail.
   echo "$mainver" > VERSION
-  "$0" >/dev/null 2>&1 || true   # noop placeholder — real assertion below
-  bash scripts/verify-version-bumped.sh >/dev/null 2>&1; rc=$?
+  env -u HEALTHY_SKIP_VERSION_BUMP bash scripts/verify-version-bumped.sh >/dev/null 2>&1; rc_fail=$?
+  # Pass path: VERSION set to a value NOT in origin/main → gate MUST pass.
+  echo "999.999.999" > VERSION
+  env -u HEALTHY_SKIP_VERSION_BUMP bash scripts/verify-version-bumped.sh >/dev/null 2>&1; rc_pass=$?
   echo "$orig" > VERSION
-  if [ "$rc" != 0 ]; then pass=$((pass + 1))
+
+  if [ "$rc_fail" != 0 ]; then pass=$((pass + 1))
   else fail=$((fail + 1)); echo "FAIL verify-version-bumped should fail when VERSION unchanged vs origin/main"; fi
+
+  if [ "$rc_pass" = 0 ]; then pass=$((pass + 1))
+  else fail=$((fail + 1)); echo "FAIL verify-version-bumped should pass when VERSION differs from origin/main"; fi
+else
+  # Upstream has no VERSION — only exercise the short-circuit path.
+  assert_rc 0 bash scripts/verify-version-bumped.sh
 fi
 
 # ----- Scenario 5 — verify-changelog behaviour -----------------------------
@@ -118,9 +131,11 @@ assert_rc 0 env HEALTHY_SKIP_CHANGELOG=1 bash scripts/verify-changelog.sh
 assert_rc 0 bash scripts/verify-changelog.sh
 
 # Force-fail path: swap VERSION to a value we know has no CHANGELOG entry.
+# Strip any inherited HEALTHY_SKIP_CHANGELOG from the surrounding env so the
+# gate runs for real (same BC-071-class leak concern as version-bumped).
 orig_v=$(tr -d '[:space:]' < VERSION)
 echo "99.99.99" > VERSION
-bash scripts/verify-changelog.sh >/dev/null 2>&1; rc=$?
+env -u HEALTHY_SKIP_CHANGELOG bash scripts/verify-changelog.sh >/dev/null 2>&1; rc=$?
 echo "$orig_v" > VERSION
 if [ "$rc" != 0 ]; then pass=$((pass + 1))
 else fail=$((fail + 1)); echo "FAIL verify-changelog should fail for a VERSION with no entry"; fi
