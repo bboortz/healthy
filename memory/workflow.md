@@ -94,25 +94,28 @@ Lifecycle: `draft → ready → in-progress → shipped` (frontmatter + INDEX).
 
 | Gate | Command | Where |
 |---|---|---|
-| Zig fmt | `zig fmt --check hc.zig` | pre-commit + CI |
-| Shell lint | `shellcheck` on `*.sh`, `.githooks/*` | pre-commit + CI |
-| Build (TLS on) | `make build` | pre-push + CI |
-| Build (TLS off) | `TLS=0 make build` | CI |
-| Cross-targets | `make cross` | CI |
-| Functional suite | `./test/run.sh` | pre-push + CI |
-| Acceptance | `make test-acceptance` | pre-push + CI |
-| Traceability | `make verify-traceability` | pre-commit + CI |
-| Size budget | `make size` — within ±5% of README table | CI |
-| Commit format | `.githooks/commit-msg` | local |
-| Memory size | `memory/*.md` ≤ 150 lines; `CLAUDE.md` ≤ 150 lines | pre-push |
+| Zig fmt | `zig fmt --check hc.zig` | pre-commit + CI (fast-check) |
+| Shell lint | `shellcheck` on `scripts/*.sh`, `test/*.sh` | pre-commit + CI (fast-check) |
+| Build (TLS on) | `make build` | pre-push + CI (full-check) |
+| Build (TLS off) | `TLS=0 make build` | pre-push + CI (full-check) |
+| Cross-targets | `make cross` | pre-push + CI (full-check) |
+| Functional suite | `./test/run.sh` | pre-push + CI (full-check) |
+| Acceptance | `make test-acceptance` | pre-push + CI (full-check) |
+| Traceability | `make verify-traceability` | pre-commit + CI (fast-check) |
+| Memory size | `memory/*.md` ≤ 150 lines; `CLAUDE.md` ≤ 150 lines | pre-commit |
+| VERSION bump | `make verify-version-bumped` | pre-push |
+| CHANGELOG entry | `make verify-changelog` | pre-push + CI (full + release) |
+| Size budget | `make size` — within ±5% of README table | pre-push (advisory locally) |
+| Commit format | `scripts/check-commit-msg.sh` (pre-commit's commit-msg stage) | local |
 
 No advisory gates — if a check isn't worth blocking, it isn't worth running.
 
-## Branch flow
+## Branch flow (HC-002)
 
-- Trunk is `main`. All work branches off `main`: `feat/HC-NNN-<slug>`, `fix/<slug>`, `refactor/<slug>`, `docs/<slug>`, `chore/<slug>`, `test/<slug>`, `ci/<slug>`.
-- PRs target `main`. Merge commits (not squash) preserve the PR boundary.
-- No `dev` branch yet. Add one if a release cadence appears or a second regular contributor shows up.
+- **`dev` is the integration branch.** All work branches off `dev`: `feat/HC-NNN-<slug>`, `fix/<slug>`, `refactor/<slug>`, `docs/<slug>`, `chore/<slug>`, `test/<slug>`, `ci/<slug>`.
+- **`main` is CI-promoted-only.** Never push directly. Promotion happens via `.github/workflows/release.yml` on a manual `workflow_dispatch` — it asserts CI was green on `dev`, fast-forwards `main`, and tags `v<VERSION>`.
+- PRs target `dev`. Merge commits (not squash) preserve the PR boundary.
+- CI tiers mirror the branch roles: feature pushes → `fast-check`; `dev` pushes + PRs to `dev` → `full-check`; `main` pushes → `release-check`. See `.github/workflows/ci.yml`.
 
 ## Zig version bump
 

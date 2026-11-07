@@ -1,0 +1,190 @@
+---
+name: CI
+
+# HC-002: stratified pipeline mirroring the local pre-push gate.
+#   feature push         → ~30s  fast-check (lint + traceability)
+#   dev push / PR → dev  → ~2-3m full-check (make check + verify-changelog)
+#   main push            → ~15s  release-check (VERSION sync + CHANGELOG + tag)
+"on":
+  push:
+    branches:
+      - main
+      - dev
+      - "feat/**"
+      - "fix/**"
+      - "docs/**"
+      - "chore/**"
+      - "refactor/**"
+      - "test/**"
+      - "ci/**"
+  pull_request:
+    branches: [dev, main]
+
+# Kill stale runs on the same ref when a new commit lands.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  # ── Detect docs-only diffs so heavy jobs skip ──────────────────────────────
+  detect:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.check.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Check for non-docs changes
+        id: check
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --depth=1 origin "${{ github.base_ref }}" || true
+            BASE="origin/${{ github.base_ref }}"
+          else
+            BASE="HEAD^"
+          fi
+          changed=$(git diff --name-only "${BASE}..HEAD" 2>/dev/null || echo "")
+          non_doc=$(echo "$changed" | grep -vE '\.md$|^docs/|^CHANGELOG\.md$' || true)
+          if [[ -z "$non_doc" ]]; then
+            echo "docs_only=true"  >> "$GITHUB_OUTPUT"
+            echo "Docs-only changes — heavy jobs will skip"
+          else
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── Fast gate: feature branches ────────────────────────────────────────────
+  fast-check:
+    name: Fast check (lint + traceability)
+    runs-on: ubuntu-latest
+    # Feature-branch pushes only. dev + main run the full / release tiers.
+    if: >
+      github.event_name == 'push' &&
+      !contains(fromJSON('["refs/heads/dev", "refs/heads/main"]'), github.ref)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+
+      - name: Install Zig 0.17.1 via pipx
+        shell: bash
+        run: |
+          pipx install 'ziglang==0.17.1'
+          # pipx console-scripts go to $(pipx environment --value PIPX_BIN_DIR)
+          # which varies by runner ($HOME/.local/bin on ubuntu-latest, but the
+          # dir may not exist yet on a cold runner). Resolve explicitly:
+          PIPX_BIN=$(pipx environment --value PIPX_BIN_DIR)
+          mkdir -p "$HOME/.local/bin"
+          ln -sf "$PIPX_BIN/python-zig" "$HOME/.local/bin/zig"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/zig" version
+
+      - name: make lint
+        run: make lint
+
+      - name: make verify-traceability
+        run: make verify-traceability
+
+  # ── Full gate: dev + PRs to dev ────────────────────────────────────────────
+  full-check:
+    name: Full check (make check)
+    runs-on: ubuntu-latest
+    needs: detect
+    if: >
+      (github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
+      (github.event_name == 'pull_request' && github.base_ref == 'dev')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # verify-version-bumped needs history
+
+      - name: Install system deps
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck openssl python3
+
+      - name: Install Zig 0.17.1 via pipx
+        shell: bash
+        run: |
+          pipx install 'ziglang==0.17.1'
+          # pipx console-scripts go to $(pipx environment --value PIPX_BIN_DIR)
+          # which varies by runner ($HOME/.local/bin on ubuntu-latest, but the
+          # dir may not exist yet on a cold runner). Resolve explicitly:
+          PIPX_BIN=$(pipx environment --value PIPX_BIN_DIR)
+          mkdir -p "$HOME/.local/bin"
+          ln -sf "$PIPX_BIN/python-zig" "$HOME/.local/bin/zig"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/zig" version
+
+      - name: Docs-only short-circuit
+        if: needs.detect.outputs.docs_only == 'true'
+        run: echo "Docs-only diff — make check skipped. verify-changelog still runs below."
+
+      - name: make check
+        if: needs.detect.outputs.docs_only != 'true'
+        run: make check
+
+      - name: make verify-changelog
+        run: make verify-changelog
+
+  # ── Release gate: main ─────────────────────────────────────────────────────
+  release-check:
+    name: Release check (CHANGELOG + VERSION sync + tag)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify CHANGELOG entry for current VERSION
+        run: bash scripts/verify-changelog.sh
+
+      - name: Assert VERSION line is semver
+        shell: bash
+        run: |
+          v=$(tr -d '[:space:]' < VERSION)
+          if ! [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::VERSION '$v' is not semver"
+            exit 1
+          fi
+          echo "VERSION is $v"
+
+      - name: Suggest tag if missing
+        shell: bash
+        run: |
+          v=$(tr -d '[:space:]' < VERSION)
+          if git rev-parse --verify "v${v}" >/dev/null 2>&1; then
+            echo "✓ Tag v${v} exists"
+          else
+            echo "::warning::main is at v${v} but no v${v} git tag exists."
+            echo "::warning::Use the Release workflow (workflow_dispatch) to tag."
+          fi
+
+  # ── Notify on failure (optional Telegram ping) ────────────────────────────
+  # No-op unless TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID secrets are set.
+  notify-failure:
+    name: Notify on failure
+    runs-on: ubuntu-latest
+    needs: [fast-check, full-check, release-check]
+    if: failure() && !cancelled() && github.event_name == 'push'
+    steps:
+      - name: Telegram ping (if configured)
+        shell: bash
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [[ -z "${TG_TOKEN}" || -z "${TG_CHAT}" ]]; then
+            echo "No Telegram secrets configured — skipping notification."
+            exit 0
+          fi
+          curl -s --max-time 10 --retry 3 --retry-delay 5 \
+            -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            -d chat_id="${TG_CHAT}" \
+            -d parse_mode="Markdown" \
+            -d text="🚨 *healthy CI failed* — \`${{ github.ref_name }}\`
+          Commit: \`${{ github.sha }}\`
+          ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" || true

@@ -21,7 +21,10 @@ Makefile                    — flowflow wrapping scripts/build.sh + tests + gat
 bin/                        — gitignored; all build outputs land here (hc-<target>)
 scripts/
   build.sh                  — cross-compile driver; CA=…, TLS=0, TARGET=… env knobs
+  check-commit-msg.sh       — conventional-commit gate; wired as pre-commit's commit-msg stage
   verify-traceability.sh    — enforce story ↔ plan ↔ test ↔ CAP links
+  verify-version-bumped.sh  — refuse pushes with unchanged VERSION (pre-push)
+  verify-changelog.sh       — refuse pushes with no CHANGELOG.md entry for current VERSION (pre-push)
 test/
   run.sh                    — 28-case functional regression suite
   srv.py                    — plain HTTP + TLS 1.3 test servers
@@ -38,8 +41,12 @@ docs/
     IDEAS.md                — backlog of ideas not yet promoted to stories
     HC-NNN-<slug>-plan.md   — one plan per in-progress / shipped story
   CAPABILITIES.md           — capability matrix; bidirectional links to tests
-.githooks/                  — commit-msg; activate via make install-hooks
-.pre-commit-config.yaml     — shellcheck + zig fmt + verify-traceability
+.github/workflows/
+  ci.yml                    — stratified CI: fast-check / full-check / release-check
+  release.yml               — manual workflow_dispatch: dev → main + tag v<VERSION>
+.pre-commit-config.yaml     — commit-msg + pre-commit (fast) + pre-push (full gate)
+VERSION                     — semver; bumped per push (pre-push verifies)
+CHANGELOG.md                — Keep-a-Changelog; entry per VERSION required
 memory/                     — persistent context for Claude sessions
 README.md                   — public contract: flags, URL schemes, exit codes, size table
 ```
@@ -67,13 +74,14 @@ Full gate matrix: `memory/workflow.md`. Story process & 9 questions: `docs/stori
 
 ---
 
-## Git workflow
+## Git workflow (HC-002)
 
-- Work branches off `main`. No `dev` branch (project is small — revisit if cadence grows).
-- Every change goes through a PR — no direct pushes to `main`.
-- Commit format: `<type>[(<scope>)]: <description>` — enforced by `.githooks/commit-msg`.
+- Work branches off `dev` — the integration branch. `main` is CI-promoted-only.
+- PRs target `dev`. Promotion `dev` → `main` + tag `v<VERSION>` happens via `.github/workflows/release.yml` on a manual `workflow_dispatch`.
+- Commit format: `<type>[(<scope>)]: <description>` — enforced by pre-commit's `commit-msg` stage (`scripts/check-commit-msg.sh`).
 - Merge commits (not squash) preserve the PR boundary.
 - PR title under 70 chars, same format as commits, no trailing period.
+- Every push to a non-`main` branch must bump `VERSION` since `origin/main` and carry a `## [v<VERSION>]` heading in `CHANGELOG.md`. Pre-push enforces both.
 
 ---
 

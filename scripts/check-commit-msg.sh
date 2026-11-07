@@ -1,6 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Enforce conventional commit format: <type>[(<scope>)]: <description>
-# See memory/code-quality.md. Installed by: make install-hooks (sets core.hooksPath).
+# See memory/code-quality.md. Wired as pre-commit framework's commit-msg stage
+# via .pre-commit-config.yaml. Activate with: make install-hooks
 set -euo pipefail
 
 msg_file="$1"

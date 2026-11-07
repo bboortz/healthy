@@ -29,11 +29,15 @@ CROSS_TARGETS := x86_64-linux aarch64-linux riscv64-linux arm-linux-musleabihf x
 SIZE_BUDGET_X86_64_TLS_KB   := 450
 SIZE_BUDGET_X86_64_NOTLS_KB := 140
 
-SHELL_FILES := scripts/build.sh scripts/verify-traceability.sh test/run.sh .githooks/commit-msg
+SHELL_FILES := scripts/build.sh scripts/verify-traceability.sh \
+               scripts/verify-version-bumped.sh scripts/verify-changelog.sh \
+               scripts/check-commit-msg.sh scripts/check-memory-size.sh \
+               test/run.sh
 ACCEPTANCE_TESTS := $(wildcard test/acceptance/test_HC_*.sh)
 
 .PHONY: help tools build cross test test-acceptance lint zig-fmt shell-lint \
-        verify-traceability size check install-hooks clean distclean
+        verify-traceability verify-version-bumped verify-changelog \
+        size check install-hooks clean distclean
 
 help:
 	@echo "healthy targets:"
@@ -46,8 +50,10 @@ help:
 	@echo "  lint                shellcheck on *.sh + zig fmt --check hc.zig"
 	@echo "  size                print stripped sizes vs. README budget"
 	@echo "  verify-traceability enforce story ↔ plan ↔ test ↔ CAP links"
+	@echo "  verify-version-bumped  VERSION must differ from origin/main:VERSION (pre-push)"
+	@echo "  verify-changelog    CHANGELOG.md must contain '## [v\$$(cat VERSION)]' (pre-push)"
 	@echo "  check               lint + build + build (TLS=0) + cross + test + test-acceptance + verify"
-	@echo "  install-hooks       activate .githooks + pre-commit (if installed)"
+	@echo "  install-hooks       install commit-msg + pre-commit + pre-push via pre-commit framework"
 	@echo "  clean               rm bin/ hc-* *.o .zig-cache/ zig-out/"
 	@echo ""
 	@echo "Variables: TARGET=$(TARGET) TLS=$(TLS) CA=$(CA) OUT=$(OUT) ZIG=$(ZIG)"
@@ -164,6 +170,12 @@ lint: zig-fmt shell-lint
 verify-traceability:
 	@bash scripts/verify-traceability.sh
 
+verify-version-bumped:
+	@bash scripts/verify-version-bumped.sh
+
+verify-changelog:
+	@bash scripts/verify-changelog.sh
+
 size: build
 	@echo "→ size budget (KB, stripped)"
 	@tls_size=$$(stat -c%s $(OUT)); tls_kb=$$(( tls_size / 1024 )); \
@@ -190,13 +202,13 @@ check: lint verify-traceability
 	@echo "check: ok"
 
 install-hooks:
-	@git config core.hooksPath .githooks
-	@echo "→ git hooks: core.hooksPath = .githooks"
-	@if command -v pre-commit >/dev/null 2>&1; then \
-	  pre-commit install && pre-commit install --hook-type pre-push; \
-	else \
-	  echo "  pre-commit not installed — skipping (pipx install pre-commit)"; \
-	fi
+	@command -v pre-commit >/dev/null 2>&1 || { \
+	  echo "pre-commit not installed — run 'make tools' first"; exit 1; }
+	@# Defensively undo the HC-001 core.hooksPath setting so pre-commit's
+	@# "Cowardly refusing to install hooks" path never triggers on upgraders.
+	@git config --unset-all core.hooksPath 2>/dev/null || true
+	@pre-commit install --hook-type commit-msg --hook-type pre-commit --hook-type pre-push
+	@echo "install-hooks: ok (commit-msg + pre-commit + pre-push installed into .git/hooks/)"
 
 clean:
 	@rm -rf bin

@@ -229,3 +229,56 @@ Internally it resolves the repo root via `repo="$(cd "$here/.." && pwd)"` so
 
 - **Delivered by**: HC-001
 - **Covered by**: `test/acceptance/test_HC_001_dd-tgd-bootstrap.sh`
+
+### workflow.ci-stratified
+
+GitHub Actions pipeline (`.github/workflows/ci.yml`) stratifies by branch:
+feature pushes get `fast-check` (lint + traceability, ~30s), `dev` pushes and
+PRs to `dev` get `full-check` (`make check`, ~2–3min), `main` pushes get
+`release-check` (CHANGELOG + VERSION sync + tag presence, ~15s). Docs-only
+diffs short-circuit the heavy tier. `concurrency: cancel-in-progress` kills
+stale runs.
+
+- **Delivered by**: HC-002
+- **Covered by**: `test/acceptance/test_HC_002_ci-dev-main-promotion.sh`
+
+### workflow.release-promotion
+
+Manual `workflow_dispatch` release workflow (`.github/workflows/release.yml`)
+fast-forwards `main` from `dev`, asserts the latest CI check-run on `dev` was
+green (aborts loudly if red or not-yet-run), reads `VERSION`, tags
+`v<VERSION>` iff absent, and pushes both.
+
+- **Delivered by**: HC-002
+- **Covered by**: `test/acceptance/test_HC_002_ci-dev-main-promotion.sh`
+
+### workflow.version-sync-gate
+
+`VERSION` + `CHANGELOG.md` live at the repo root. Every push to a non-`main`
+branch must bump `VERSION` since `origin/main`, and `CHANGELOG.md` must carry
+a `## [v<VERSION>]` heading. Enforced by `scripts/verify-version-bumped.sh` +
+`scripts/verify-changelog.sh`; bypass via `HEALTHY_SKIP_VERSION_BUMP=1` /
+`HEALTHY_SKIP_CHANGELOG=1` in emergencies.
+
+- **Delivered by**: HC-002
+- **Covered by**: `test/acceptance/test_HC_002_ci-dev-main-promotion.sh`
+
+### workflow.pre-push-gate
+
+The pre-push hook runs the full local gate — `make check` + `verify-version-
+bumped` + `verify-changelog`. This is the primary gate; CI mirrors it in
+`full-check`. A push that would fail CI fails pre-push first unless
+`--no-verify` is used.
+
+- **Delivered by**: HC-002
+- **Covered by**: `test/acceptance/test_HC_002_ci-dev-main-promotion.sh`
+
+### workflow.hooks-via-pre-commit
+
+`make install-hooks` installs three hook types (commit-msg, pre-commit,
+pre-push) via the `pre-commit` framework into `.git/hooks/`. It defensively
+unsets any pre-existing `core.hooksPath` first, so upgrades from the HC-001
+layout succeed without manual cleanup.
+
+- **Delivered by**: HC-002
+- **Covered by**: `test/acceptance/test_HC_002_ci-dev-main-promotion.sh`

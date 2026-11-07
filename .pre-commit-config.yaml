@@ -1,4 +1,31 @@
+# healthy — pre-commit framework config.
+# Install all three hook types with:  make install-hooks
+#
+# Stages, by weight:
+#   commit-msg (always, instant): conventional-commit format gate.
+#   pre-commit (staged files only, fast): shellcheck + zig fmt + memory-size +
+#     traceability. Should complete in a couple of seconds.
+#   pre-push  (full local gate, ~2–3 min): make check +
+#     verify-version-bumped + verify-changelog.
+#     This is the primary gate — CI mirrors it in `full-check`.
+#
+# Bypass in emergencies (document in PR body):
+#   git commit --no-verify
+#   git push   --no-verify
+#   HEALTHY_SKIP_VERSION_BUMP=1 git push
+#   HEALTHY_SKIP_CHANGELOG=1 git push
+
 repos:
+  # ── commit-msg stage ─────────────────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: conventional-commit
+        name: conventional-commit format
+        language: system
+        entry: bash scripts/check-commit-msg.sh
+        stages: [commit-msg]
+
+  # ── pre-commit stage (staged files, fast) ────────────────────────────────
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: v0.10.0.1
     hooks:
@@ -23,30 +50,32 @@ repos:
         files: ^(docs/stories/|docs/plan/|docs/CAPABILITIES\.md|test/acceptance/)
 
       - id: memory-size
-        name: memory/*.md ≤ 150 lines, CLAUDE.md ≤ 150 lines
+        name: memory/*.md and CLAUDE.md <= 150 lines
         language: system
-        entry: bash -c '
-          fail=0
-          for f in memory/*.md; do
-            [ "$(basename "$f")" = "MEMORY.md" ] && continue
-            n=$(wc -l < "$f")
-            if [ "$n" -gt 150 ]; then
-              echo "FAIL: $f has $n lines (limit 150)" >&2; fail=1
-            fi
-          done
-          if [ -f CLAUDE.md ]; then
-            n=$(wc -l < CLAUDE.md)
-            if [ "$n" -gt 150 ]; then
-              echo "FAIL: CLAUDE.md has $n lines (limit 150)" >&2; fail=1
-            fi
-          fi
-          exit $fail'
+        entry: bash scripts/check-memory-size.sh
         pass_filenames: false
         files: ^(memory/.*\.md|CLAUDE\.md)$
 
-      - id: make-check-pre-push
-        name: make check (pre-push full local gate)
+  # ── pre-push stage (primary gate, heavy) ─────────────────────────────────
+  - repo: local
+    hooks:
+      - id: make-check
+        name: make check (pre-push — full local gate)
         language: system
         entry: make check
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: verify-version-bumped
+        name: verify VERSION bumped since origin/main (pre-push)
+        language: system
+        entry: bash scripts/verify-version-bumped.sh
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: verify-changelog
+        name: verify CHANGELOG entry for current VERSION (pre-push)
+        language: system
+        entry: bash scripts/verify-changelog.sh
         pass_filenames: false
         stages: [pre-push]

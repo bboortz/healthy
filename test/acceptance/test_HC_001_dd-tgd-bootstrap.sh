@@ -45,7 +45,8 @@ assert_exists docs/plan/_template.md
 assert_exists docs/plan/IDEAS.md
 assert_exists docs/CAPABILITIES.md
 assert_exec   scripts/verify-traceability.sh
-assert_exec   .githooks/commit-msg
+# HC-002 moved this: .githooks/commit-msg → scripts/check-commit-msg.sh.
+assert_exec   scripts/check-commit-msg.sh
 assert_exists .pre-commit-config.yaml
 assert_exists memory/MEMORY.md
 assert_exists CLAUDE.md
@@ -78,7 +79,7 @@ for t in tools build cross test test-acceptance lint zig-fmt shell-lint \
 done
 
 # ----- Scenario 7 — conventional-commit gate -------------------------------
-hook=.githooks/commit-msg
+hook=scripts/check-commit-msg.sh
 tmp=$(mktemp)
 # bad subjects → rc=1
 for bad in "garbage message" "WIP: something" "Added feature" "feat no colon"; do
