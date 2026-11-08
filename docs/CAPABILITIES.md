@@ -350,3 +350,18 @@ a multi-arch manifest list under `:<version>`, `:<major>.<minor>`,
 
 - **Delivered by**: HC-005
 - **Covered by**: `test/acceptance/test_HC_005_publish-ghcr-image.sh`
+
+## hc.*
+
+### hc.idle-mode
+
+`hc idle` blocks until `SIGTERM` or `SIGINT` arrives, then exits 0. Zero
+CPU use while blocked (process is in `TASK_INTERRUPTIBLE` via signalfd
+read). PID 1 safe: uses `sigprocmask(BLOCK) + signalfd + read` which
+counts as explicit signal handling from the kernel's perspective, so
+`docker stop` within the grace window exits the container cleanly.
+`hc idle <anything>` exits 2 (usage error). Makes `hc` usable as the
+sole binary in a scratch sidecar — no `sleep` or `pause` dependency.
+
+- **Delivered by**: HC-006
+- **Covered by**: `test/acceptance/test_HC_006_idle-mode.sh`

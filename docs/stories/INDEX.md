@@ -9,6 +9,7 @@ One line per story. Keep sorted by HC id. Status: `draft → ready → in-progre
 | HC-003  | robust-release-pipeline | Robust release pipeline (jq filter + fixture tests) | shipped      | 2026-11-08 | 2026-11-08 |
 | HC-004  | usage-patterns-docs | Usage-patterns docs (Docker/K8s/Ansible) | shipped      | 2026-11-08 | 2026-11-08 |
 | HC-005  | publish-ghcr-image | Publish hc as multi-arch GHCR image | shipped      | 2026-11-08 | 2026-11-08 |
+| HC-006  | idle-mode | `hc idle` sigwait sentinel for PID 1 | shipped      | 2026-11-08 | 2026-11-08 |
 
 Templates: [`_template.md`](_template.md), [`_9-questions.md`](_9-questions.md).
 

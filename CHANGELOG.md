@@ -113,6 +113,24 @@ CI + release workflow (HC-002).
   added — on `main` the test only asserts the short-circuit itself.
   Surfaced during the HC-002 → `main` manual bootstrap promotion push.
 
+### Added (HC-006)
+
+- **`hc.idle-mode`** — new subcommand `hc idle` blocks on `{SIGTERM,
+  SIGINT}` via `sigprocmask(BLOCK) + signalfd + read`, then exits 0 on
+  either signal. Zero CPU while blocked (process is in `TASK_INTERRUPTIBLE`;
+  verified with `ps` showing `STAT=SN %CPU=0.0`). PID-1 safe: the
+  signalfd pattern counts as explicit signal handling from the kernel's
+  POV, so a scratch container with `CMD ["/hc", "idle"]` responds to
+  `docker stop` within the grace window (measured <2s on a local
+  round-trip test). `hc idle <anything>` exits 2 (usage error). Enables
+  forge's FG-031 to collapse `healthy-scratch-trixie` to pure
+  `FROM scratch + COPY /hc + CMD ["/hc", "idle"]` — no `sleep`, no libc,
+  no OS packages. Binary cost: +216 bytes.
+- **Invariant update** — `memory/project.md` now names `hc idle` as the
+  **only** long-running shape and explicitly closes the door on a `hc
+  watch` / `hc serve` / `--daemon` scope creep via a new "No daemon mode
+  with side effects" line in the "What is NOT in scope" list.
+
 ### Added (HC-005)
 
 - **`image.scratch-single-file`** — a new top-level `Dockerfile` packages
