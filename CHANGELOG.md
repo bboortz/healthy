@@ -113,6 +113,25 @@ CI + release workflow (HC-002).
   added — on `main` the test only asserts the short-circuit itself.
   Surfaced during the HC-002 → `main` manual bootstrap promotion push.
 
+### Added (HC-005)
+
+- **`image.scratch-single-file`** — a new top-level `Dockerfile` packages
+  the `hc` binary in a `FROM scratch` image. Build-arg `HC_BIN` selects
+  which cross-compiled binary to COPY in; the resulting layer contains
+  exactly one regular file (`/hc`) with `ENTRYPOINT ["/hc"]`. No shell,
+  no `/etc/passwd`, no CA bundle, no implicit metadata. Locally verified
+  with `docker export | tar -t` filtered for Docker's runtime overlay.
+- **`workflow.publish-ghcr-image`** — `release.yml` grows a
+  `publish-image` job that runs after the existing `promote` step. The job
+  builds `hc` for `linux/amd64` + `linux/arm64` via the existing
+  `scripts/build.sh` cross-targets, logs into `ghcr.io` with the default
+  `GITHUB_TOKEN` (`packages: write`), pushes per-arch single-platform
+  images, and creates a multi-arch manifest list under `:<version>`,
+  `:<major>.<minor>`, `:<major>`, and `:latest`. Unblocks downstream
+  consumers (e.g. `bboortz/forge`'s FG-030) to `COPY --from=ghcr.io/
+  bboortz/hc:<ver> /hc /hc` in their own scratch Dockerfiles — no closure,
+  no shell, 404 KB instead of GnuTLS's ~24 MB.
+
 ### Added (HC-004)
 
 - **`docs.integration-patterns`** — `README.md` now carries a dedicated

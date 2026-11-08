@@ -322,3 +322,31 @@ equivalents so operators can grep-replace.
 
 - **Delivered by**: HC-004
 - **Covered by**: `test/acceptance/test_HC_004_usage-patterns-docs.sh`
+
+## image.*
+
+### image.scratch-single-file
+
+The published `hc` container image is `FROM scratch` and contains exactly
+one regular file (`/hc`) and nothing else. No CA bundle, no `/etc/passwd`,
+no empty directories, no implicit metadata. Verified by `docker export`
+piped through `tar -t`, and by a Dockerfile shape assertion that bans
+`CMD`-SHELL / `RUN` / `SHELL` / `USER` / `WORKDIR`.
+
+- **Delivered by**: HC-005
+- **Covered by**: `test/acceptance/test_HC_005_publish-ghcr-image.sh`
+
+## (workflow continues)
+
+### workflow.publish-ghcr-image
+
+`release.yml`'s `publish-image` job depends on the `promote` job, builds
+`hc` for `linux/amd64` + `linux/arm64` via the existing `scripts/build.sh`
+cross-targets, logs into `ghcr.io` with the default `GITHUB_TOKEN`
+(`packages: write`), pushes per-arch single-platform images, and creates
+a multi-arch manifest list under `:<version>`, `:<major>.<minor>`,
+`:<major>`, `:latest`. Downstream scratch images can then
+`COPY --from=ghcr.io/bboortz/hc:<ver> /hc /hc` without any closure.
+
+- **Delivered by**: HC-005
+- **Covered by**: `test/acceptance/test_HC_005_publish-ghcr-image.sh`

@@ -33,6 +33,8 @@ jobs:
   promote:
     name: Promote dev → main + tag
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.vars.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -42,11 +44,14 @@ jobs:
           # token: ${{ secrets.GH_PAT }}
 
       - name: Fetch HEAD of ${{ inputs.ref }}
+        id: vars
         shell: bash
         run: |
           git fetch origin ${{ inputs.ref }}:promote-src --force
           echo "SRC_SHA=$(git rev-parse promote-src)" >> "$GITHUB_ENV"
-          echo "VERSION=$(git show promote-src:VERSION | tr -d '[:space:]')" >> "$GITHUB_ENV"
+          VERSION=$(git show promote-src:VERSION | tr -d '[:space:]')
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "version=$VERSION"  >> "$GITHUB_OUTPUT"
 
       - name: Assert CI is green on ${{ inputs.ref }} HEAD
         shell: bash
@@ -94,4 +99,117 @@ jobs:
             echo "- Source: \`${{ inputs.ref }}\` @ \`${SRC_SHA:0:8}\`"
             echo "- Version: \`${VERSION}\`"
             echo "- Tag: \`v${VERSION}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # HC-005: publish hc as a multi-arch GHCR image (amd64 + arm64).
+  # Runs only after promote succeeded so we always publish a promoted SHA.
+  publish-image:
+    name: Publish ghcr.io/${{ github.repository_owner }}/hc:${{ needs.promote.outputs.version }}
+    needs: promote
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/hc
+      VERSION: ${{ needs.promote.outputs.version }}
+    steps:
+      - name: Checkout main (just-promoted SHA)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Install Zig 0.17.1 via pipx
+        shell: bash
+        run: |
+          pipx install 'ziglang==0.17.1'
+          PIPX_BIN=$(pipx environment --value PIPX_BIN_DIR)
+          mkdir -p "$HOME/.local/bin"
+          ln -sf "$PIPX_BIN/python-zig" "$HOME/.local/bin/zig"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/zig" version
+
+      - name: Build amd64 + arm64 binaries via scripts/build.sh
+        shell: bash
+        run: |
+          TARGET=x86_64-linux  scripts/build.sh
+          TARGET=aarch64-linux scripts/build.sh
+          ls -lh bin/
+
+      - name: Set up Docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log into GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute tag aliases
+        id: tags
+        shell: bash
+        run: |
+          # Semver split: 0.1.2 → major=0, major_minor=0.1
+          major=$(echo "$VERSION" | cut -d. -f1)
+          minor=$(echo "$VERSION" | cut -d. -f2)
+          {
+            echo "version=$VERSION"
+            echo "major_minor=$major.$minor"
+            echo "major=$major"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build + push amd64
+        shell: bash
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --build-arg HC_BIN=bin/hc-x86_64-linux \
+            --tag "$IMAGE:${{ steps.tags.outputs.version }}-amd64" \
+            --push \
+            .
+
+      - name: Build + push arm64
+        shell: bash
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --build-arg HC_BIN=bin/hc-aarch64-linux \
+            --tag "$IMAGE:${{ steps.tags.outputs.version }}-arm64" \
+            --push \
+            .
+
+      - name: Create + push multi-arch manifest lists
+        shell: bash
+        run: |
+          # One manifest list per moving alias. All point at the same pair of
+          # single-platform digests; aliases differ only in the tag name.
+          for tag in \
+            "$IMAGE:${{ steps.tags.outputs.version }}" \
+            "$IMAGE:${{ steps.tags.outputs.major_minor }}" \
+            "$IMAGE:${{ steps.tags.outputs.major }}" \
+            "$IMAGE:latest"
+          do
+            echo "→ $tag"
+            docker buildx imagetools create \
+              --tag "$tag" \
+              "$IMAGE:${{ steps.tags.outputs.version }}-amd64" \
+              "$IMAGE:${{ steps.tags.outputs.version }}-arm64"
+          done
+
+      - name: Summary
+        shell: bash
+        run: |
+          {
+            echo "## Published"
+            echo "- \`$IMAGE:${{ steps.tags.outputs.version }}\` (versioned, immutable pin recommended)"
+            echo "- \`$IMAGE:${{ steps.tags.outputs.major_minor }}\` (patch-level alias)"
+            echo "- \`$IMAGE:${{ steps.tags.outputs.major }}\` (minor-level alias)"
+            echo "- \`$IMAGE:latest\` (most-recent tagged release)"
+            echo ""
+            echo "Downstream:"
+            echo "\`\`\`dockerfile"
+            echo "COPY --from=$IMAGE:${{ steps.tags.outputs.version }} /hc /hc"
+            echo "\`\`\`"
           } >> "$GITHUB_STEP_SUMMARY"
