@@ -112,3 +112,17 @@ CI + release workflow (HC-002).
   short-circuits with exit 0, making the assertion unsatisfiable. Guard
   added — on `main` the test only asserts the short-circuit itself.
   Surfaced during the HC-002 → `main` manual bootstrap promotion push.
+
+### Added (HC-004)
+
+- **`docs.integration-patterns`** — `README.md` now carries a dedicated
+  "Usage patterns" section with concrete, copy-paste-ready blocks for
+  Docker (Dockerfile `HEALTHCHECK` + `docker-compose.yml`), Kubernetes
+  (`startupProbe` + `readinessProbe` + `livenessProbe`, exec-form), and
+  Ansible (`command`-module smoke task mirroring homelab's retry
+  convention). Each environment covers the startup-tight (`-t 1`) and
+  steady-state (`-t 5`) variants. A migration table maps the four common
+  legacy patterns (`urllib.request.urlopen`, `curl -sf`, `wget -qO-`,
+  `nc -z`) to their `hc` equivalents, drawn from the `bboortz/homelab`
+  survey conducted 2026-11-08. Grep-based acceptance assertions prevent
+  silent rot.

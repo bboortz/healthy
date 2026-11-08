@@ -305,3 +305,20 @@ only-skipped, empty).
 
 - **Delivered by**: HC-003
 - **Covered by**: `test/acceptance/test_HC_003_robust-release-pipeline.sh`
+
+## docs.*
+
+### docs.integration-patterns
+
+`README.md` carries a "Usage patterns" section with concrete,
+copy-paste-ready blocks for the three target environments: Docker
+(Dockerfile `HEALTHCHECK` + `docker-compose.yml`), Kubernetes
+(`startupProbe` + `readinessProbe` + `livenessProbe`), and Ansible
+(`command`-module smoke task matching the homelab retry convention). Each
+environment covers the startup-tight (`-t 1`) and steady-state (`-t 5`)
+variants. A migration table maps the four common legacy patterns
+(`urllib.request.urlopen`, `curl -sf`, `wget -qO-`, `nc -z`) to their `hc`
+equivalents so operators can grep-replace.
+
+- **Delivered by**: HC-004
+- **Covered by**: `test/acceptance/test_HC_004_usage-patterns-docs.sh`
