@@ -282,3 +282,26 @@ layout succeed without manual cleanup.
 
 - **Delivered by**: HC-002
 - **Covered by**: `test/acceptance/test_HC_002_ci-dev-main-promotion.sh`
+
+### workflow.release-check-filter
+
+`release.yml`'s "Assert CI is green" step picks the latest **non-skipped**
+`Full check (make check)` check-run via `scripts/latest-ci-status.jq`. The
+same SHA can carry multiple check-runs with that name (e.g. the dev-push
+success plus a later main-push skip); the filter ignores skips so the gate
+reflects the actual CI outcome, not the most-recently-started job. Reports
+`"not-yet-run"` when no non-skipped runs exist.
+
+- **Delivered by**: HC-003
+- **Covered by**: `test/acceptance/test_HC_003_robust-release-pipeline.sh`
+
+### workflow.release-check-testable
+
+The release-gate selection logic lives in `scripts/latest-ci-status.jq`, a
+single file consumed by both `release.yml` and the acceptance test. Four
+fixture JSON payloads under `test/acceptance/fixtures/hc-003/` exercise the
+four interesting topologies (success-after-skip, failure-after-success,
+only-skipped, empty).
+
+- **Delivered by**: HC-003
+- **Covered by**: `test/acceptance/test_HC_003_robust-release-pipeline.sh`

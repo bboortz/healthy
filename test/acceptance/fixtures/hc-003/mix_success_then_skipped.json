@@ -1,0 +1,28 @@
+{
+  "check_runs": [
+    {
+      "name": "Full check (make check)",
+      "conclusion": "success",
+      "status": "completed",
+      "started_at": "2026-11-07T20:00:00Z"
+    },
+    {
+      "name": "Full check (make check)",
+      "conclusion": "skipped",
+      "status": "completed",
+      "started_at": "2026-11-08T05:00:00Z"
+    },
+    {
+      "name": "Fast check (lint + traceability)",
+      "conclusion": "success",
+      "status": "completed",
+      "started_at": "2026-11-07T20:00:00Z"
+    },
+    {
+      "name": "Release check (CHANGELOG + VERSION sync + tag)",
+      "conclusion": "success",
+      "status": "completed",
+      "started_at": "2026-11-08T05:00:00Z"
+    }
+  ]
+}
