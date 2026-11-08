@@ -2,7 +2,7 @@
 
 ## What it is
 
-`hc` is a container healthcheck binary written in a single Zig source file (`hc.zig`). It does exactly four things:
+`hc` is a container healthcheck binary written in a single Zig source file (`hc.zig`). It does exactly four probe shapes **or** acts as a sigwait sentinel:
 
 | URL scheme | Behaviour |
 |---|---|
@@ -10,6 +10,9 @@
 | `tls://host:port` | TCP connect + verified TLS 1.3 handshake |
 | `http://host[:port]/path` | GET; status in `-s` range (default 200–299); optional body match `-m` |
 | `https://host[:port]/path` | Same, verified against configured CA |
+| *(subcommand)* `hc idle` | Block on `{SIGTERM, SIGINT}` via `sigprocmask + signalfd + read`; exit 0 on either. Zero CPU, PID-1 safe. Enables use as the sole binary in a scratch sidecar. |
+
+Every URL-form invocation performs one probe and exits. `hc idle` is the **only** long-running shape, and it performs no I/O between start and signal.
 
 CLI surface and exit codes are frozen in `README.md` — changes there are breaking changes for `HEALTHCHECK` lines in downstream Dockerfiles.
 
@@ -44,3 +47,5 @@ Tested with **Zig 0.17.1**. `std.Io` and `std.crypto.tls` APIs change between re
 - No metrics output. Exit code is the signal.
 - No config file. Flags only.
 - No `log` package. `std.debug.print` to stderr on failure, nothing on success.
+- **No daemon mode with side effects.** `hc idle` is the only long-running shape, and it only blocks on signals — no HTTP server, no scheduled probes, no state, no I/O. A `hc watch`, `hc serve`, or `hc --daemon` would be a different story and is explicitly out of scope.
+- **No zombie / orphan reaping** even though `hc idle` runs as PID 1 in sidecar containers. `hc` spawns no children; there is nothing to reap. Consumers that need true init-level process management use `tini` or equivalent — not `hc`.

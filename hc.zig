@@ -10,6 +10,8 @@
 //!   http://host[:port]/path    GET, status must be in range (default 200-299)
 //!   https://host[:port]/path   same, over verified TLS
 //!
+//!   hc idle                    block on SIGTERM/SIGINT (container PID 1 use)
+//!
 //! Exit codes: 0 healthy, 1 unhealthy, 2 usage error.
 //! TLS is verified against the CA(s) in `--ca file` (PEM), or against the CA
 //! embedded at build time with `-Dca=path/to/ca.pem`. System roots are never used.
@@ -69,6 +71,37 @@ fn armDeadline(secs: u32) void {
     _ = linux.sigaction(.ALRM, &act, null);
     const tv: Itimerval = .{ .interval_sec = 0, .interval_usec = 0, .sec = @intCast(secs), .usec = 0 };
     _ = linux.syscall3(.setitimer, 0, @intFromPtr(&tv), 0);
+}
+
+// ---- HC-006: hc idle sentinel ---------------------------------------------
+// Block until SIGTERM or SIGINT, then exit 0. Zero CPU while blocked.
+//
+// Pattern: sigprocmask(BLOCK) + signalfd + read. This is what counts as
+// "explicit signal handling" from the kernel's POV, so a container PID 1
+// using `hc idle` responds to `docker stop` within the grace window —
+// unlike a naive pause() which the kernel would drop for PID 1 default
+// actions.
+fn idle() noreturn {
+    var set = linux.sigemptyset();
+    linux.sigaddset(&set, .INT);
+    linux.sigaddset(&set, .TERM);
+
+    _ = linux.sigprocmask(linux.SIG.BLOCK, &set, null);
+
+    const rc_fd = linux.signalfd(-1, &set, 0);
+    if (rc_fd > std.math.maxInt(i32)) {
+        say("hc: signalfd failed\n");
+        linux.exit_group(1);
+    }
+    const fd: linux.fd_t = @intCast(rc_fd);
+
+    // read(2) blocks until a subscribed signal arrives. We don't inspect
+    // which — any of {TERM, INT} means "exit cleanly." The read buffer
+    // is sized to exactly one signalfd_siginfo record.
+    var buf: [128]u8 = undefined;
+    _ = linux.read(fd, &buf, buf.len);
+
+    linux.exit_group(0);
 }
 
 // ---- argument parsing ------------------------------------------------------
@@ -233,6 +266,21 @@ fn run(io: Io, o: Opts) !void {
 pub fn main(init: std.process.Init.Minimal) u8 {
     var o: Opts = .{};
     var have_target = false;
+
+    // HC-006: peek for the `idle` subcommand before the probe flag loop.
+    // `hc idle` is the only long-running shape; it must NOT arm the
+    // SIGALRM watchdog below, and it must reject any additional args.
+    {
+        var peek = init.args.iterate();
+        _ = peek.next();
+        if (peek.next()) |first| {
+            if (std.mem.eql(u8, first, "idle")) {
+                if (peek.next() != null) return usage();
+                idle();
+            }
+        }
+    }
+
     var it = init.args.iterate();
     _ = it.next();
     while (it.next()) |a| {
@@ -274,5 +322,6 @@ pub fn main(init: std.process.Init.Minimal) u8 {
 
 fn usage() u8 {
     say("usage: hc [-t secs] [-s lo-hi] [-m str] [-H name] [-k | --ca file] (tcp|tls|http|https)://host[:port][/path]\n");
+    say("       hc idle                                      block on SIGTERM/SIGINT (container PID 1 use)\n");
     return 2;
 }
