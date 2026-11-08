@@ -53,14 +53,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # The source-of-truth check-run name is "Full check (make check)"
-          # per ci.yml. If CI hasn't finished yet, there's no success record
-          # and we abort — operator waits for the badge to turn green.
+          # The source-of-truth filter lives in scripts/latest-ci-status.jq.
+          # Picks the latest NON-skipped "Full check (make check)" run so the
+          # mixed-topology case (dev-push success + main-push skip on the
+          # same SHA) resolves correctly. See HC-003.
           STATUS=$(gh api "repos/${{ github.repository }}/commits/${SRC_SHA}/check-runs" \
-            --jq '[.check_runs[] | select(.name == "Full check (make check)")] | sort_by(.started_at) | .[-1].conclusion' \
-            2>/dev/null || echo "")
+            | jq -r -f scripts/latest-ci-status.jq)
           if [[ "$STATUS" != "success" ]]; then
-            echo "::error::CI on ${SRC_SHA:0:8} not green (status=${STATUS:-not-yet-run}). Wait for CI to pass before promoting."
+            echo "::error::CI on ${SRC_SHA:0:8} not green (status=${STATUS}). Wait for CI to pass before promoting."
             exit 1
           fi
           echo "✓ CI green on ${SRC_SHA:0:8}"

@@ -88,12 +88,19 @@ assert_exec scripts/verify-version-bumped.sh
 # Bypass path: HEALTHY_SKIP_VERSION_BUMP=1 always exits 0.
 assert_rc 0 env HEALTHY_SKIP_VERSION_BUMP=1 bash scripts/verify-version-bumped.sh
 
-# If origin/main has no VERSION yet, the script short-circuits with exit 0
-# (pre-HC-002 case). After HC-002 merges, origin/main has VERSION, and we
-# can exercise both the pass path and the force-fail path by temporarily
-# rewriting the working-tree VERSION file.
-if git rev-parse --verify --quiet origin/main >/dev/null 2>&1 \
-   && git show origin/main:VERSION >/dev/null 2>&1; then
+# verify-version-bumped intentionally short-circuits on branch 'main' (main
+# advances via release.yml, not direct pushes). On main, the force-fail and
+# pass paths below can't be exercised — the script returns 0 unconditionally.
+# HC-003: guard the branch so the test is correct on main too.
+cur_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+
+if [ "$cur_branch" = "main" ]; then
+  # On main, the short-circuit IS the behaviour under test.
+  # The real gate for 'VERSION unchanged' only applies off-main.
+  assert_rc 0 bash scripts/verify-version-bumped.sh
+elif git rev-parse --verify --quiet origin/main >/dev/null 2>&1 \
+     && git show origin/main:VERSION >/dev/null 2>&1; then
+  # Off main with an origin/main:VERSION present → exercise both paths.
   orig=$(tr -d '[:space:]' < VERSION)
   mainver=$(git show origin/main:VERSION | tr -d '[:space:]')
 

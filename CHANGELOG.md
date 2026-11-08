@@ -89,3 +89,26 @@ CI + release workflow (HC-002).
   merged, the guard passed and both local pre-push and CI full-check
   hung forever. Line removed; the real assertion two lines below was
   the only intended check.
+
+### Added (HC-003)
+
+- **`workflow.release-check-filter`** — `release.yml`'s "Assert CI is
+  green" step now picks the latest **non-skipped** `Full check (make
+  check)` check-run via `scripts/latest-ci-status.jq`. Correctly resolves
+  the mixed-topology case where the same SHA carries both a dev-push
+  success and a later main-push skip. Previous inline jq grabbed the
+  latest overall (the skip), masking the real success.
+- **`workflow.release-check-testable`** — jq filter extracted to
+  `scripts/latest-ci-status.jq` (single source of truth consumed by both
+  `release.yml` and the acceptance test). Four fixture JSON payloads
+  under `test/acceptance/fixtures/hc-003/` cover success-after-skip,
+  failure-after-success, only-skipped, and empty topologies.
+
+### Fixed (HC-003)
+
+- **`test_HC_002` Scenario-4 on `main`** — the force-fail assertion
+  assumed `verify-version-bumped` would fail when VERSION matches
+  `origin/main`'s. True off-main; on-main the script correctly
+  short-circuits with exit 0, making the assertion unsatisfiable. Guard
+  added — on `main` the test only asserts the short-circuit itself.
+  Surfaced during the HC-002 → `main` manual bootstrap promotion push.

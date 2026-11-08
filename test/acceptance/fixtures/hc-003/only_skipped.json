@@ -1,0 +1,16 @@
+{
+  "check_runs": [
+    {
+      "name": "Full check (make check)",
+      "conclusion": "skipped",
+      "status": "completed",
+      "started_at": "2026-11-08T05:00:00Z"
+    },
+    {
+      "name": "Fast check (lint + traceability)",
+      "conclusion": "skipped",
+      "status": "completed",
+      "started_at": "2026-11-08T05:00:00Z"
+    }
+  ]
+}
