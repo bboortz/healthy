@@ -17,59 +17,50 @@ if [ ! -x "$HC" ]; then
   scripts/build.sh >/dev/null 2>&1
 fi
 
-# Portable: GNU date supports %s%N; busybox only %s. We're on an Arch host +
-# ubuntu-latest CI runner — both GNU.
+# Portable timing + wait-with-timeout. Works on dash (CI) and bash (Arch).
+# We avoid polling `kill -0` because on dash the shell doesn't reap
+# backgrounded children eagerly — kill -0 returns 0 on zombies and the
+# loop spins past its budget. Instead: block on `wait $pid` directly
+# (which reaps) + a sibling killer that guarantees unblocking after the
+# budget. elapsed_ms = time from signal send to reap.
 now_ms() { date +%s%3N; }
 
-wait_exit_within() {
-  # wait_exit_within <pid> <max_ms> — poll until the pid is gone, or timeout.
-  # Returns the elapsed ms on stdout; returns 1 on timeout.
-  pid=$1; max=$2
+check_idle_signal() {
+  # check_idle_signal <sig> <scenario-label>
+  sig=$1; label=$2
+
+  "$HC" idle &
+  pid=$!
+  sleep 0.3
+
   start=$(now_ms)
-  while kill -0 "$pid" 2>/dev/null; do
-    elapsed=$(( $(now_ms) - start ))
-    if [ "$elapsed" -gt "$max" ]; then
-      return 1
-    fi
-    sleep 0.05
-  done
-  echo $(( $(now_ms) - start ))
-  return 0
+  kill -"$sig" "$pid" 2>/dev/null
+
+  # Backgrounded killer: SIGKILL the child if it hasn't exited by the budget.
+  ( sleep 1; kill -KILL "$pid" 2>/dev/null ) &
+  killer=$!
+
+  # `wait $pid` blocks until the child is reaped (either signal-driven or killer-driven).
+  wait "$pid"; rc=$?
+  elapsed=$(( $(now_ms) - start ))
+
+  # Clean up the killer (may still be sleeping on fast exit).
+  kill "$killer" 2>/dev/null
+  wait "$killer" 2>/dev/null || true
+
+  if [ "$rc" = 0 ] && [ "$elapsed" -lt 1000 ]; then
+    pass=$((pass + 1))
+  else
+    fail=$((fail + 1))
+    echo "FAIL ($label) hc idle: rc=$rc elapsed=${elapsed}ms (want rc=0, elapsed<1000)"
+  fi
 }
 
 # ----- Scenario 1 — foreground SIGTERM → exit 0 within 1s ------------------
-"$HC" idle &
-pid=$!
-sleep 0.3
-if ! kill -0 "$pid" 2>/dev/null; then
-  fail=$((fail + 1)); echo "FAIL (S1) hc idle exited on its own before SIGTERM"
-else
-  kill -TERM "$pid"
-  elapsed=$(wait_exit_within "$pid" 1000)
-  if [ -n "$elapsed" ]; then
-    wait "$pid"; rc=$?
-    if [ "$rc" = 0 ]; then pass=$((pass + 1))
-    else fail=$((fail + 1)); echo "FAIL (S1) hc idle exit after SIGTERM: got $rc, want 0"; fi
-  else
-    kill -KILL "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true
-    fail=$((fail + 1)); echo "FAIL (S1) hc idle did not exit within 1s of SIGTERM"
-  fi
-fi
+check_idle_signal TERM S1
 
 # ----- Scenario 2 — foreground SIGINT → exit 0 within 1s -------------------
-"$HC" idle &
-pid=$!
-sleep 0.3
-kill -INT "$pid"
-elapsed=$(wait_exit_within "$pid" 1000)
-if [ -n "$elapsed" ]; then
-  wait "$pid"; rc=$?
-  if [ "$rc" = 0 ]; then pass=$((pass + 1))
-  else fail=$((fail + 1)); echo "FAIL (S2) hc idle exit after SIGINT: got $rc, want 0"; fi
-else
-  kill -KILL "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true
-  fail=$((fail + 1)); echo "FAIL (S2) hc idle did not exit within 1s of SIGINT"
-fi
+check_idle_signal INT S2
 
 # ----- Scenario 3 — extra args → exit 2 ------------------------------------
 "$HC" idle somearg >/dev/null 2>&1; rc=$?
