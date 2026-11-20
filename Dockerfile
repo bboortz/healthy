@@ -51,6 +51,13 @@ RUN TARGET=${ZIG_TARGET} sh /src/scripts/build.sh && \
 # ── Stage 2: runtime ─────────────────────────────────────────────────────────
 FROM scratch
 
+# Re-declare the build-args here so the runtime stage sees them. ARG scoping
+# in Docker is per-stage: declarations in the builder stage above don't carry
+# across. Without this re-declaration, `LABEL ...revision="${GIT_SHA}"` would
+# expand to the empty string (observed post-HC-007 ship, 2026-11-20).
+ARG GIT_SHA=unknown
+ARG BUILD_TIMESTAMP=unknown
+
 LABEL org.opencontainers.image.source="https://github.com/bboortz/healthy"
 LABEL org.opencontainers.image.description="Tiny static TCP / TLS 1.3 / HTTP(S) health check probe. Scratch-safe. No libc, no heap."
 LABEL org.opencontainers.image.licenses="MIT"

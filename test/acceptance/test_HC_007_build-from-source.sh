@@ -90,6 +90,25 @@ if command -v docker >/dev/null 2>&1; then
     fail=$((fail + 1)); echo "FAIL docker run of build-from-source image failed (expected exit 0 for -k https://benni.tech/)"
   fi
 
+  # Regression guard (post-HC-007 ship, 2026-11-20): OCI labels for
+  # revision + created must populate from --build-arg values, not expand
+  # to empty strings. Multi-stage Docker ARG scoping requires each stage
+  # that USES an ARG to declare it; the runtime stage was missing the
+  # re-declaration, so the LABEL lines silently expanded to "".
+  docker build --quiet --build-arg ZIG_TARGET=x86_64-linux \
+    --build-arg GIT_SHA=hc007-label-test \
+    --build-arg BUILD_TIMESTAMP=2026-11-20T00:00:00Z \
+    -t "${tag}-labels" . >/dev/null 2>&1
+  rev=$(docker image inspect "${tag}-labels" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')
+  crt=$(docker image inspect "${tag}-labels" --format '{{index .Config.Labels "org.opencontainers.image.created"}}')
+  if [ "$rev" = "hc007-label-test" ] && [ "$crt" = "2026-11-20T00:00:00Z" ]; then
+    pass=$((pass + 1))
+  else
+    fail=$((fail + 1))
+    echo "FAIL runtime-stage ARG propagation: revision='$rev' created='$crt'"
+  fi
+  docker image rm "${tag}-labels" >/dev/null 2>&1 || true
+
   # Image shape invariant from HC-005 still holds: /hc is the only regular
   # file in the layer (filter Docker's runtime overlay).
   cid=$(docker create "$tag" 2>/dev/null)
