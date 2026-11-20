@@ -10,6 +10,7 @@ One line per story. Keep sorted by HC id. Status: `draft → ready → in-progre
 | HC-004  | usage-patterns-docs | Usage-patterns docs (Docker/K8s/Ansible) | shipped      | 2026-11-08 | 2026-11-08 |
 | HC-005  | publish-ghcr-image | Publish hc as multi-arch GHCR image | shipped      | 2026-11-08 | 2026-11-08 |
 | HC-006  | idle-mode | `hc idle` sigwait sentinel for PID 1 | shipped      | 2026-11-08 | 2026-11-08 |
+| HC-007  | build-from-source | Dockerfile builds `hc` from source via forge builder (FG-072) | shipped      | 2026-11-08 | 2026-11-20 |
 
 Templates: [`_template.md`](_template.md), [`_9-questions.md`](_9-questions.md).
 

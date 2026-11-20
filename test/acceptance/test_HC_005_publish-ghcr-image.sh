@@ -38,18 +38,31 @@ assert_in_publish() { pat=$1; label=$2
   else fail=$((fail + 1)); echo "FAIL (in publish-image: $label) grep '$pat'"; fi; }
 
 # ----- Scenario 1 — Dockerfile shape ---------------------------------------
+# HC-005 guarantees: runtime image is scratch + /hc + ENTRYPOINT + OCI label.
+# HC-007 added a builder stage (which legitimately has RUN/WORKDIR/etc.) — the
+# runtime-stage assertions below are now scoped to the slice after the final
+# `FROM scratch` to preserve HC-005's original "no implicit runtime surface"
+# intent.
+
 assert_grep '^FROM scratch\s*$'        Dockerfile
-assert_grep '^ARG HC_BIN'              Dockerfile
-assert_grep '^COPY \$\{?HC_BIN'        Dockerfile
 assert_grep '^ENTRYPOINT \["\/hc"\]$'  Dockerfile
-# No shell escape hatches / no USER / no WORKDIR / no RUN
-assert_absent_in_file '^RUN '          Dockerfile
-assert_absent_in_file '^SHELL '        Dockerfile
-assert_absent_in_file '^CMD-SHELL'     Dockerfile
-assert_absent_in_file '^USER '         Dockerfile
-assert_absent_in_file '^WORKDIR '      Dockerfile
 # OCI source label for upstream discovery
 assert_grep 'org.opencontainers.image.source' Dockerfile
+
+# Runtime stage is the slice from the final `FROM scratch` to end-of-file.
+runtime_stage() {
+  awk '/^FROM scratch/,0' Dockerfile
+}
+assert_absent_in_runtime() { pat=$1
+  if runtime_stage | grep -qE "$pat"; then
+    fail=$((fail + 1)); echo "FAIL runtime stage carries '$pat' — breaks no-implicit-surface invariant"
+  else pass=$((pass + 1)); fi; }
+
+assert_absent_in_runtime '^RUN '
+assert_absent_in_runtime '^SHELL '
+assert_absent_in_runtime '^CMD-SHELL'
+assert_absent_in_runtime '^USER '
+assert_absent_in_runtime '^WORKDIR '
 
 # ----- Scenario 2 — release.yml publish-image job is wired correctly ------
 assert_grep '^  publish-image:' .github/workflows/release.yml
@@ -63,21 +76,20 @@ assert_in_publish 'linux/arm64'                             "arm64 build"
 # Manifest list with the four tags
 assert_in_publish 'buildx imagetools create'                "manifest create"
 assert_in_publish 'IMAGE:latest'                            ":latest tag"
-# Reuses HC-002's Zig-install recipe
-assert_in_publish "ziglang==0\\.17\\.1"                     "pinned zig version"
-# Reuses existing cross-compile targets, not a from-scratch rebuild
-assert_in_publish 'scripts/build.sh'                        "scripts/build.sh use"
+# HC-007: Zig source build now happens inside the Dockerfile's builder stage,
+# not via pipx on the runner. The publish-image job no longer needs pipx
+# install or scripts/build.sh invocation.
+assert_in_publish 'ZIG_TARGET=x86_64-linux'                 "amd64 ZIG_TARGET build-arg"
+assert_in_publish 'ZIG_TARGET=aarch64-linux'                "arm64 ZIG_TARGET build-arg"
 
 # ----- Scenario 3 — Local amd64 build produces a single-file scratch image
 # (docker-availability-gated — developers without docker get a skip note,
 # CI runners always have docker).
+# HC-007: the Dockerfile now builds hc.zig inside its builder stage. No
+# host-side bin/ pre-step needed — the build-arg is ZIG_TARGET, not HC_BIN.
 if command -v docker >/dev/null 2>&1; then
   tag=hc-test-hc005:local
-  if [ ! -x bin/hc-x86_64-linux ]; then
-    # Build if the binary isn't lying around (e.g. after make clean).
-    scripts/build.sh >/dev/null 2>&1
-  fi
-  if docker build --quiet --build-arg HC_BIN=bin/hc-x86_64-linux -t "$tag" . >/dev/null 2>&1; then
+  if docker build --quiet --build-arg ZIG_TARGET=x86_64-linux -t "$tag" . >/dev/null 2>&1; then
     pass=$((pass + 1))
   else
     fail=$((fail + 1)); echo "FAIL docker build of Dockerfile failed"

@@ -1,0 +1,8 @@
+# HC-007: allowlist shape. Block everything, then explicitly allow the two
+# files the Dockerfile's COPY instructions reference. Keeps the build
+# context tight (no sending ~100 repo files to the daemon) and forces a
+# reviewer to see any new file that legitimately joins the build context
+# (just add a `!path` line below).
+*
+!hc.zig
+!scripts/build.sh
