@@ -120,22 +120,10 @@ jobs:
           ref: main
           fetch-depth: 1
 
-      - name: Install Zig 0.17.1 via pipx
-        shell: bash
-        run: |
-          pipx install 'ziglang==0.17.1'
-          PIPX_BIN=$(pipx environment --value PIPX_BIN_DIR)
-          mkdir -p "$HOME/.local/bin"
-          ln -sf "$PIPX_BIN/python-zig" "$HOME/.local/bin/zig"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          "$HOME/.local/bin/zig" version
-
-      - name: Build amd64 + arm64 binaries via scripts/build.sh
-        shell: bash
-        run: |
-          TARGET=x86_64-linux  scripts/build.sh
-          TARGET=aarch64-linux scripts/build.sh
-          ls -lh bin/
+      # HC-007: Zig toolchain + source compile happen inside the Dockerfile's
+      # builder stage (ghcr.io/bboortz/forge-builder-zig-trixie). The runner
+      # no longer needs any host-side Zig install or binary pre-build —
+      # docker buildx does everything via the multi-stage Dockerfile.
 
       - name: Set up Docker buildx
         uses: docker/setup-buildx-action@v3
@@ -160,22 +148,26 @@ jobs:
             echo "major=$major"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Build + push amd64
+      - name: Build + push amd64 (from source via forge builder)
         shell: bash
         run: |
           docker buildx build \
             --platform linux/amd64 \
-            --build-arg HC_BIN=bin/hc-x86_64-linux \
+            --build-arg ZIG_TARGET=x86_64-linux \
+            --build-arg GIT_SHA="${GITHUB_SHA}" \
+            --build-arg BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --tag "$IMAGE:${{ steps.tags.outputs.version }}-amd64" \
             --push \
             .
 
-      - name: Build + push arm64
+      - name: Build + push arm64 (from source via forge builder)
         shell: bash
         run: |
           docker buildx build \
             --platform linux/arm64 \
-            --build-arg HC_BIN=bin/hc-aarch64-linux \
+            --build-arg ZIG_TARGET=aarch64-linux \
+            --build-arg GIT_SHA="${GITHUB_SHA}" \
+            --build-arg BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --tag "$IMAGE:${{ steps.tags.outputs.version }}-arm64" \
             --push \
             .

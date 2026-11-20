@@ -365,3 +365,17 @@ sole binary in a scratch sidecar — no `sleep` or `pause` dependency.
 
 - **Delivered by**: HC-006
 - **Covered by**: `test/acceptance/test_HC_006_idle-mode.sh`
+
+### image.builds-from-source
+
+The published `hc` container image is produced by a multi-stage
+`Dockerfile`: stage 1 compiles `hc.zig` with Zig 0.17.1 inside
+`ghcr.io/bboortz/forge-builder-zig-trixie` (forge FG-072); stage 2 is
+`FROM scratch` + `COPY --from=builder /hc /hc`. `docker build .` from a
+fresh git checkout produces the image; no pre-built binary enters the
+build context. Build-arg surface is `ZIG_TARGET` (cross-target name
+forwarded to `scripts/build.sh`). Supersedes HC-005's `ARG HC_BIN`
+contract. Matches forge's "image built from sources" trust-chain shape.
+
+- **Delivered by**: HC-007
+- **Covered by**: `test/acceptance/test_HC_007_build-from-source.sh`

@@ -113,6 +113,39 @@ CI + release workflow (HC-002).
   added — on `main` the test only asserts the short-circuit itself.
   Surfaced during the HC-002 → `main` manual bootstrap promotion push.
 
+### Added (HC-007)
+
+- **`image.builds-from-source`** — top-level `Dockerfile` becomes
+  multi-stage: stage 1 compiles `hc.zig` with Zig 0.17.1 inside
+  `ghcr.io/bboortz/forge-builder-zig-trixie` (forge FG-072 — Zig +
+  CA bundle + syft + git/curl/jq, apt-upgraded trixie userland); stage
+  2 is `FROM scratch` + `COPY --from=builder /hc /hc`. `docker build .`
+  from a fresh clone produces the image — no pre-built binary in the
+  build context. Build-arg `ZIG_TARGET` (default `x86_64-linux`,
+  CI overrides for arm64) replaces HC-005's `ARG HC_BIN`.
+  Pre-flight verified on amd64 (404,608 B binary, runs clean against
+  `benni.tech`) and aarch64 (346,752 B, `file(1)` confirms
+  `ELF 64-bit LSB executable, ARM aarch64`).
+- **`workflow.publish-ghcr-image` (extended)** —
+  `.github/workflows/release.yml`'s `publish-image` job drops the two
+  runner-side build-prep steps (`Install Zig 0.17.1 via pipx` and
+  `Build amd64 + arm64 binaries via scripts/build.sh`); the Zig
+  toolchain + source compile happen inside the Dockerfile's builder
+  stage via `docker buildx build`. The two `buildx build` steps now
+  pass `--build-arg ZIG_TARGET=<target>` and forward `GIT_SHA` +
+  `BUILD_TIMESTAMP` into OCI image labels.
+- **`.dockerignore`** (new) — allowlist shape: `*` then `!hc.zig`,
+  `!scripts/build.sh`. Build-context minimalism; forces reviewer
+  visibility on any new file joining the build context.
+- **HC-005's acceptance test updated** — `ARG HC_BIN` / `COPY ${HC_BIN}`
+  / `pipx install ziglang` / `scripts/build.sh` host-side invocation
+  assertions swapped for `ARG ZIG_TARGET` + `COPY --from=builder /hc`
+  + `--build-arg ZIG_TARGET=` + absence of removed step names in
+  `publish-image`. Runtime-stage "no shell/USER/WORKDIR" assertions
+  scoped to the slice after the final `FROM scratch` (via `awk`
+  range) so the builder stage's legitimate `RUN`/`WORKDIR` don't
+  false-trigger.
+
 ### Added (HC-006)
 
 - **`hc.idle-mode`** — new subcommand `hc idle` blocks on `{SIGTERM,
