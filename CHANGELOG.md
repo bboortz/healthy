@@ -113,6 +113,18 @@ CI + release workflow (HC-002).
   added — on `main` the test only asserts the short-circuit itself.
   Surfaced during the HC-002 → `main` manual bootstrap promotion push.
 
+### Fixed (post-HC-007)
+
+- **OCI labels `revision` + `created` empty on published image** — the
+  `ARG GIT_SHA` + `ARG BUILD_TIMESTAMP` declarations lived only in the
+  `builder` stage. Docker's ARG scoping doesn't carry across stages, so
+  the Stage 2 `LABEL ...revision="${GIT_SHA}"` + `...created=
+  "${BUILD_TIMESTAMP}"` lines silently expanded to empty strings on the
+  first HC-007 publish. Re-declared both ARGs inside the runtime stage;
+  added a regression guard in `test_HC_007_build-from-source.sh` that
+  builds with a sentinel GIT_SHA + BUILD_TIMESTAMP and asserts the
+  inspect-returned label values match.
+
 ### Added (HC-007)
 
 - **`image.builds-from-source`** — top-level `Dockerfile` becomes
