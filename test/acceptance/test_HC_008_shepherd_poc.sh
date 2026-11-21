@@ -54,10 +54,15 @@ if [ -z "$bad" ]; then pass=$((pass + 1))
 else fail=$((fail + 1)); echo "FAIL $wf has non-SHA uses: refs: $bad"; fi
 
 # ----- Scenario 3 — scripts exist + executable ----------------------------
-for s in install-trivy.sh agent-call.sh validate.sh open-pr.sh; do
+for s in install-trivy.sh agent-call.sh validate.sh regen-lockfile.sh open-pr.sh; do
   assert_exists  "scripts/shepherd-poc/$s"
   assert_exec    "scripts/shepherd-poc/$s"
 done
+
+# ----- Scenario 3b — workflow wires the hybrid flow -----------------------
+assert_contains "$wf" "Setup Node.js"
+assert_contains "$wf" "Regenerate lockfile"
+assert_contains "$wf" "Validate combined diff"
 
 # ----- Scenario 4 — validate.sh blocks a diff touching .github/workflows/ -
 assert_rc 2 "$validate" test/acceptance/fixtures/HC_008_blocked_workflow.patch
@@ -79,7 +84,7 @@ if printf '%s' "$out" | grep -q "sigstore"; then pass=$((pass + 1))
 else fail=$((fail + 1)); echo "FAIL install-trivy.sh --dry-run missing sigstore bundle reference"; fi
 
 # ----- Scope level 1 — the prompt forbids workflow + .shepherd.yml writes --
-assert_contains scripts/shepherd-poc/agent-call.sh "dependencies and lockfiles"
+assert_contains scripts/shepherd-poc/agent-call.sh "manifest files only"
 assert_contains scripts/shepherd-poc/agent-call.sh ".shepherd.yml"
 assert_contains scripts/shepherd-poc/agent-call.sh "NO_FIX_POSSIBLE"
 
