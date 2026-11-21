@@ -379,3 +379,54 @@ contract. Matches forge's "image built from sources" trust-chain shape.
 
 - **Delivered by**: HC-007
 - **Covered by**: `test/acceptance/test_HC_007_build-from-source.sh`
+
+## shepherd.* (HC-008 — R0 POC)
+
+### shepherd.scan-trivy
+
+`.github/workflows/shepherd-poc.yml` runs `trivy fs --severity HIGH,CRITICAL --ignore-unfixed` against the repo on cron + `workflow_dispatch`, writing the result to a path the agent step reads. Trivy is installed from the official release tarball and verified against its sigstore bundle (`cosign verify-blob`) — not via `aquasecurity/trivy-action`, which CVE-2026-33634 made unsafe.
+
+- **Delivered by**: HC-008
+- **Covered by**: `test/acceptance/test_HC_008_shepherd_poc.sh`
+
+### shepherd.sandbox.no-secrets
+
+The agent step (`agent-call.sh`) is invoked with only `ANTHROPIC_API_KEY` in its `env:` block. No `GITHUB_TOKEN`, no deploy keys, no repo secrets. Acceptance asserts the `Agent call` step's env block does not reference `GITHUB_TOKEN`.
+
+- **Delivered by**: HC-008
+- **Covered by**: `test/acceptance/test_HC_008_shepherd_poc.sh`
+
+### shepherd.sandbox.diff-only
+
+The agent produces a unified diff written to `/tmp/diff.patch`; a separate trusted step (`open-pr.sh`) applies it, commits, pushes, opens the PR. Step ordering and script separation enforce this.
+
+- **Delivered by**: HC-008
+- **Covered by**: `test/acceptance/test_HC_008_shepherd_poc.sh`
+
+### shepherd.blocklist.protected-files
+
+`scripts/shepherd-poc/validate.sh` refuses any diff that touches `.github/workflows/**`, `.shepherd.yml`, `scripts/release.sh`, `VERSION`, `*.env`, `*.pem`, or `*.key` — and exits 2 with the offending path on stderr. The blocklist is the only line of defence in R0; R1 adds a sandbox perimeter.
+
+- **Delivered by**: HC-008
+- **Covered by**: `test/acceptance/test_HC_008_shepherd_poc.sh`
+
+### shepherd.gate.diff-size
+
+`validate.sh` counts `+` and `-` lines (excluding `+++`/`---` headers) and rejects diffs above 50 changed lines (the R0 hard-coded cap from DESIGN §13).
+
+- **Delivered by**: HC-008
+- **Covered by**: `test/acceptance/test_HC_008_shepherd_poc.sh`
+
+### shepherd.scope.level-1
+
+`agent-call.sh`'s prompt binds the agent to dependency + lockfile changes only. Anything requiring source-code edits in `hc.zig`, `build.sh`, `Makefile`, or `scripts/` must result in the literal response `NO_FIX_POSSIBLE`. Enforcement by prompt is weak; the blocklist above is the hard gate.
+
+- **Delivered by**: HC-008
+- **Covered by**: `test/acceptance/test_HC_008_shepherd_poc.sh`
+
+### supply-chain.sha-pin-all-actions
+
+Every third-party `uses:` line in `.github/workflows/shepherd-poc.yml` references a 40-hex commit SHA, never a mutable tag. Matches bboortz/shepherd SH-001's project-wide invariant; the acceptance script runs a regex over the uses: lines to enforce it.
+
+- **Delivered by**: HC-008
+- **Covered by**: `test/acceptance/test_HC_008_shepherd_poc.sh`
