@@ -36,7 +36,7 @@ jobs:
     outputs:
       version: ${{ steps.vars.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           # Default GITHUB_TOKEN has contents:write and can push to unprotected
@@ -115,7 +115,7 @@ jobs:
       VERSION: ${{ needs.promote.outputs.version }}
     steps:
       - name: Checkout main (just-promoted SHA)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 1
