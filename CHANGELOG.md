@@ -4,6 +4,27 @@ All notable changes to `healthy` are recorded here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and this project follows
 [Semantic Versioning](https://semver.org/).
 
+## [v0.2.0] — 2026-11-21
+
+### Added (HC-008) — Shepherd Release 0 POC
+
+- `.github/workflows/shepherd-poc.yml` runs on cron (05:00 UTC) and `workflow_dispatch`. Four-step pipeline: Trivy fs scan → Claude agent call → diff validation → PR open.
+- `scripts/shepherd-poc/install-trivy.sh` installs Trivy v0.69.3 by downloading the official release and verifying the sigstore bundle (`cosign verify-blob`). No `aquasecurity/trivy-action` wrapper — CVE-2026-33634 proved that class of attack is live.
+- `scripts/shepherd-poc/agent-call.sh` calls the Anthropic Messages API with the findings JSON. Hard-coded R0 defaults: `max_tokens=4096` (approximates the €1/run cap), 3 retries with exponential backoff. Prompt binds the agent to scope level 1 (deps + lockfiles only) and to the protected-files blocklist.
+- `scripts/shepherd-poc/validate.sh` gates the candidate diff against the protected-files blocklist (`.github/workflows/**`, `.shepherd.yml`, `scripts/release.sh`, `VERSION`, `*.env`, `*.pem`, `*.key`) and a 50-line size cap. Exits 2 on violation. Only line of defence in R0 — R1 adds a sandbox perimeter.
+- `scripts/shepherd-poc/open-pr.sh` applies the validated diff on a new branch and opens a PR against `dev` with labels `shepherd-poc` and `needs-review`.
+- `test/acceptance/test_HC_008_shepherd_poc.sh` — 23 assertions, no network. Covers workflow shape, no-trivy-action-wrapper, SHA-pin invariant, validator behaviour across 4 diff fixtures, prompt wording, and the `no GITHUB_TOKEN in agent step` sandbox check.
+- `test/acceptance/fixtures/HC_008_*.patch` — four unified-diff fixtures (blocked workflow, blocked `.shepherd.yml`, oversize, OK small).
+- `docs/CAPABILITIES.md` — new `shepherd.*` section with 7 CAPs.
+
+### Known gap
+
+- R0's sandbox invariant ("no network except the model API", DESIGN §12) is **approximated, not enforced**. The agent step runs on a stock GitHub-hosted runner. The validator is the only enforcement line. R1 adds the network perimeter.
+
+### Setup
+
+- One new secret required on this repo: `ANTHROPIC_API_KEY` (`gh secret set ANTHROPIC_API_KEY -R bboortz/healthy`).
+
 ## [v0.1.0] — 2026-11-07
 
 Initial tagged version. Bundles the repository bootstrap (HC-001) and the
