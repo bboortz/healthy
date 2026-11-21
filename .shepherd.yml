@@ -1,0 +1,23 @@
+---
+version: 1
+risk: low
+build: make build
+test: make test
+auto_merge:
+  patch: true
+  minor: true
+  major: false
+security_fix: pr-only
+notify: ntfy
+owner: benni
+
+# Dependabot baseline (SH-011). Shepherd-managed repo.
+dependabot:
+  enforce_enabled: true
+  auto_merge: false
+
+# SH-010 live-test override: shorten the waiting-period gate from the
+# default 24h to 6h so the first auto-merge canary completes within a
+# working day. Restore to 24h after the soak proves the gate works.
+gates:
+  waiting_period_hours: 6
