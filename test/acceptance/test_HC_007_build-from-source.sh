@@ -84,10 +84,14 @@ if command -v docker >/dev/null 2>&1; then
   fi
 
   # Runtime behavior: default URL probe exits 0 against a known-good host.
-  if docker run --rm "$tag" -k https://benni.tech/ >/dev/null 2>&1; then
+  # Public probe target: api.github.com returns 200 reliably and accepts hc's
+  # minimal TLS 1.3 ClientHello (observed 2026-11-21: benni.tech was 504,
+  # example.com rejected the TLS handshake). Keep -k because a scratch image
+  # has no CA bundle.
+  if docker run --rm "$tag" -k https://api.github.com/ >/dev/null 2>&1; then
     pass=$((pass + 1))
   else
-    fail=$((fail + 1)); echo "FAIL docker run of build-from-source image failed (expected exit 0 for -k https://benni.tech/)"
+    fail=$((fail + 1)); echo "FAIL docker run of build-from-source image failed (expected exit 0 for -k https://api.github.com/)"
   fi
 
   # Regression guard (post-HC-007 ship, 2026-11-20): OCI labels for
