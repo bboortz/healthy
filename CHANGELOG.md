@@ -4,6 +4,12 @@ All notable changes to `healthy` are recorded here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and this project follows
 [Semantic Versioning](https://semver.org/).
 
+## [v0.2.1] — 2026-11-21
+
+### Fixed
+
+- `scripts/shepherd-poc/install-trivy.sh`: the sigstore verification was failing in CI with "bundle does not contain cert for verification". Trivy's `.sigstore.json` is the new sigstore bundle format (v0.3), which `cosign verify-blob` only parses when `--new-bundle-format` is passed. Added the flag and bumped the fallback cosign installer to v2.5.3. Observed live on GitHub Actions run 44900561346 after the HC-008 merge.
+
 ## [v0.2.0] — 2026-11-21
 
 ### Added (HC-008) — Shepherd Release 0 POC

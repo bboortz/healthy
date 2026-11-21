@@ -36,6 +36,7 @@ while [ $# -gt 0 ]; do
 done
 
 COSIGN_CMD='cosign verify-blob \
+  --new-bundle-format \
   --certificate-identity-regexp "https://github\\.com/aquasecurity/" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
   --bundle "'"$WORK"'/'"$BUNDLE"'" \
@@ -53,9 +54,8 @@ fi
 echo "→ Installing Trivy v$TRIVY_VERSION into $INSTALL_PREFIX"
 command -v curl >/dev/null || { echo "curl missing" >&2; exit 1; }
 command -v cosign >/dev/null || {
-  echo "→ Installing cosign (go install sigstore cosign)"
-  # On ubuntu-latest, cosign is preinstalled since late 2024. Fallback:
-  curl -sSLo /tmp/cosign https://github.com/sigstore/cosign/releases/download/v2.4.1/cosign-linux-amd64
+  echo "→ Installing cosign v2.5.3 (fallback — ubuntu-latest preinstalls it since late 2024)"
+  curl -sSLo /tmp/cosign https://github.com/sigstore/cosign/releases/download/v2.5.3/cosign-linux-amd64
   chmod +x /tmp/cosign
   export PATH="/tmp:$PATH"
 }
@@ -64,8 +64,9 @@ cd "$WORK"
 curl -sSLO "$BASE/$ARCHIVE"
 curl -sSLO "$BASE/$BUNDLE"
 
-echo "→ Verifying sigstore bundle"
+echo "→ Verifying sigstore bundle (new-bundle-format: .sigstore.json → sigstore bundle v0.3)"
 cosign verify-blob \
+  --new-bundle-format \
   --certificate-identity-regexp 'https://github\.com/aquasecurity/' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   --bundle "$BUNDLE" \
