@@ -1,5 +1,5 @@
 #!/bin/sh
-# test_HC_003_robust-release-pipeline.sh — release.yml gate picks the
+# test_HC_003_robust-release-pipeline.sh — ci-release.yml gate picks the
 # right check-run.
 # Story: docs/stories/HC-003-robust-release-pipeline.md
 # Plan:  docs/plan/HC-003-robust-release-pipeline-plan.md
@@ -49,7 +49,7 @@ assert_jq_output "not-yet-run" "$FIXTURES/empty.json"
 # ----- Scenario 3 — release.yml consumes the same jq file ------------------
 # Guard against the "two copies, one drifts" failure mode. release.yml must
 # reference the jq file; if someone inlines the query again, this breaks.
-assert_grep 'scripts/latest-ci-status\.jq' .github/workflows/release.yml
+assert_grep 'scripts/latest-ci-status\.jq' .github/workflows/ci-release.yml
 
 # ----- Scenario 4 — jq file is self-contained (no external deps) -----------
 # A fresh jq binary must consume the file without errors on at least one

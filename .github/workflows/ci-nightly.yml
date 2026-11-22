@@ -1,0 +1,37 @@
+---
+# Dev-cycle contract (SH-014) — tier 4: slow lane.
+# Budget: 120 min soft cap. Runs `make ci-nightly`.
+#
+# healthy's nightly is the full cross-target build + test matrix
+# (CROSS_TARGETS = x86_64 / aarch64 / riscv64 / arm / x86). It overlaps
+# with `check` but runs on a fresh clean runner to catch state-dependent
+# regressions.
+name: ci-nightly
+
+"on":
+  schedule:
+    - cron: "30 2 * * *"    # 02:30 UTC daily
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120    # SH-039: contract budget for nightly tier
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Install Zig 0.17.1
+        run: |
+          set -eu
+          cd /tmp
+          curl -fsSL -o zig.tar.xz https://ziglang.org/download/0.17.1/zig-x86_64-linux-0.17.1.tar.xz
+          echo "3581863e3cbcfd0fce0efc682ce7e9e93da96668a977791d356a26d2a7e9b17a  zig.tar.xz" | sha256sum -c -
+          tar -xJf zig.tar.xz
+          echo "/tmp/zig-x86_64-linux-0.17.1" >> "$GITHUB_PATH"
+
+      - name: Run nightly slow lane
+        run: make ci-nightly
