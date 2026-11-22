@@ -4,6 +4,12 @@ All notable changes to `healthy` are recorded here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and this project follows
 [Semantic Versioning](https://semver.org/).
 
+## [v0.7.2] — 2026-11-22
+
+### Added
+
+- **SH-029 fleet branching convergence (HC-010).** Adds `ci-release-promote` Makefile target (FF main to dev + tag from VERSION) + `.github/workflows/ci-release.yml` (SHA-pinned, `ref: dev` checkout, 15-min cap). Mirrors shepherd's shared contract. Post-merge: operator flips GitHub default branch to `dev`. Existing build / test / cross / lint / check recipes unchanged. New CAP `shepherd.branching-convergence`.
+
 ## [v0.2.3] — 2026-11-22
 
 ### Added

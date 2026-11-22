@@ -437,3 +437,10 @@ Healthy's root `Makefile` exposes the shepherd dev-cycle contract (eight canonic
 
 - **Delivered by**: HC-009
 - **Covered by**: `make -n <each-contract-target>` in the HC-009 PR shipping evidence (no new acceptance test).
+
+### shepherd.branching-convergence
+
+Healthy adopts the fleet-wide `feat/* → dev → main` branching with `default=dev` and the shared `ci-release-promote` Makefile target. Mirrors shepherd SH-029. Spec: <https://github.com/bboortz/shepherd/blob/main/docs/stories/SH-029-fleet-branching-convergence.md>.
+
+- **Delivered by**: HC-010
+- **Covered by**: inspection of `make -n ci-release` + `.github/workflows/ci-release.yml` (`ref: dev` + SHA-pinned actions).

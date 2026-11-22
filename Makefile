@@ -240,7 +240,26 @@ release-artifacts: cross        # cross-compiles all targets (ReleaseSmall/Relea
 # Tier bodies.
 ci-branch:  lint test cross     # 5-min PR gate: lint + test + cross-build of all targets
 ci-patch:   smoke                # post-merge smoke (fast)
-ci-release:
-	@echo "ci-release: healthy's CD pipeline tags + publishes the pre-built cross binaries"
+
+# ci-release-promote: FF main to dev + tag from VERSION (SH-029).
+# Must run on `dev`. Mutates working tree; CI only.
+.PHONY: ci-release-promote
+ci-release-promote:
+	@current=$$(git branch --show-current); \
+	 [ "$$current" = "dev" ] || { echo "ci-release-promote must run on 'dev', got '$$current'"; exit 1; }
+	@[ -f VERSION ] || { echo "VERSION file missing — cannot determine tag"; exit 1; }
+	@version=$$(cat VERSION | tr -d '[:space:]'); \
+	 echo "SH-029 promote: dev → main as v$$version"; \
+	 git fetch origin main && \
+	 git checkout main && \
+	 git merge --ff-only origin/dev && \
+	 git tag "v$$version" HEAD && \
+	 git push origin main && \
+	 git push origin "v$$version" && \
+	 git checkout dev
+
+ci-release: ci-release-promote
+	@echo "ci-release: healthy CD pipeline continues to tag + publish pre-built cross binaries"
+
 ci-nightly: ci-nightly-body
 ci-nightly-body: check           # nightly: lint + verify-traceability (healthy's existing full check)
