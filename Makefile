@@ -217,3 +217,30 @@ clean:
 
 distclean: clean
 	@echo "distclean: ok"
+
+##@ Shepherd dev-cycle contract (SH-014 / SH-019)
+#
+# Spec: https://github.com/bboortz/shepherd/blob/main/docs/specs/dev-cycle-contract.md
+#
+# Healthy is the reference implementation of the contract (SH-025 in the
+# shepherd umbrella). Dev-cycle doc measured healthy at 3.0 / 3.7 / 1.5 min
+# (PR / push / release) — already inside all three budgets. This PR adopts
+# the shared target names so new repos can use healthy's Makefile as the
+# template.
+
+.PHONY: test-affected smoke release-artifacts \
+        ci-branch ci-patch ci-release ci-nightly ci-nightly-body
+
+# Contract entry points — healthy's existing targets are already fast; the
+# aliases are mostly identity.
+test-affected: test            # healthy's test is already fast enough (3 min)
+smoke:         test             # exercises the `hc` binary via test-acceptance
+release-artifacts: cross        # cross-compiles all targets (ReleaseSmall/ReleaseSafe)
+
+# Tier bodies.
+ci-branch:  lint test cross     # 5-min PR gate: lint + test + cross-build of all targets
+ci-patch:   smoke                # post-merge smoke (fast)
+ci-release:
+	@echo "ci-release: healthy's CD pipeline tags + publishes the pre-built cross binaries"
+ci-nightly: ci-nightly-body
+ci-nightly-body: check           # nightly: lint + verify-traceability (healthy's existing full check)
