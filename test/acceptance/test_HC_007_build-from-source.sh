@@ -34,7 +34,7 @@ in_release_section() {
     $0 ~ s { inside=1; next }
     inside && $0 ~ e { exit }
     inside { print }
-  ' .github/workflows/release.yml | grep -Eq "$pat" 2>/dev/null
+  ' .github/workflows/ci-release.yml | grep -Eq "$pat" 2>/dev/null
 }
 assert_in_publish() { pat=$1; label=$2
   if in_release_section "$pat" '^  publish-image:' '^  [a-z_]+:'; then pass=$((pass + 1))

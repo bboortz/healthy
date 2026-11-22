@@ -31,7 +31,7 @@ in_release_section() {
     $0 ~ s { inside=1; next }
     inside && $0 ~ e { exit }
     inside { print }
-  ' .github/workflows/release.yml | grep -Eq "$pat"
+  ' .github/workflows/ci-release.yml | grep -Eq "$pat"
 }
 assert_in_publish() { pat=$1; label=$2
   if in_release_section "$pat" '^  publish-image:' '^  [a-z_]+:'; then pass=$((pass + 1))
@@ -65,7 +65,7 @@ assert_absent_in_runtime '^USER '
 assert_absent_in_runtime '^WORKDIR '
 
 # ----- Scenario 2 — release.yml publish-image job is wired correctly ------
-assert_grep '^  publish-image:' .github/workflows/release.yml
+assert_grep '^  publish-image:' .github/workflows/ci-release.yml
 assert_in_publish 'needs: promote'                          "needs"
 assert_in_publish 'packages: write'                         "packages: write"
 assert_in_publish 'docker/login-action'                     "docker login"
