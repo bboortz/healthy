@@ -48,21 +48,21 @@ assert_rc 0 make -n install-hooks
 assert_absent .githooks
 
 # ----- Scenario 2 — CI workflow files present + valid YAML + jobs ----------
-assert_exists .github/workflows/ci.yml
+assert_exists .github/workflows/ci-branch.yml
 assert_exists .github/workflows/release.yml
 
 # Validate YAML syntax via python (ships with every runner we'd target).
 if command -v python3 >/dev/null 2>&1; then
-  for y in .github/workflows/ci.yml .github/workflows/release.yml; do
+  for y in .github/workflows/ci-branch.yml .github/workflows/release.yml; do
     assert_rc 0 python3 -c "import yaml, sys; yaml.safe_load(open('$y'))"
   done
 fi
 
 # ci.yml has the three stratified job names (exact names matter for
 # release.yml's check-run assertion).
-assert_grep '^  fast-check:'    .github/workflows/ci.yml
-assert_grep '^  full-check:'    .github/workflows/ci.yml
-assert_grep '^  release-check:' .github/workflows/ci.yml
+assert_grep '^  fast-check:'    .github/workflows/ci-branch.yml
+assert_grep '^  full-check:'    .github/workflows/ci-branch.yml
+assert_grep '^  release-check:' .github/workflows/ci-branch.yml
 # release.yml uses workflow_dispatch and asserts CI green before promoting.
 assert_grep 'workflow_dispatch' .github/workflows/release.yml
 assert_grep 'Full check \(make check\)' .github/workflows/release.yml

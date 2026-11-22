@@ -1,5 +1,7 @@
 ---
-name: CI
+# Dev-cycle contract (SH-014) — tier 1: feature-branch / PR gate.
+# Renamed from ci.yml → ci-branch.yml via SH-035 (workflow filename convergence).
+name: ci-branch
 
 # HC-002: stratified pipeline mirroring the local pre-push gate.
 #   feature push         → ~30s  fast-check (lint + traceability)
