@@ -231,9 +231,10 @@ distclean: clean
 .PHONY: test-affected smoke release-artifacts \
         ci-branch ci-patch ci-release ci-nightly ci-nightly-body
 
-# Contract entry points — healthy's existing targets are already fast; the
-# aliases are mostly identity.
-test-affected: test            # healthy's test is already fast enough (3 min)
+# Contract entry points. test-affected is diff-aware via SH-037 (shepherd SH-036 pattern);
+# smoke + release-artifacts stay as identity/direct aliases.
+test-affected: build
+	@sh scripts/test-affected.sh
 smoke:         test             # exercises the `hc` binary via test-acceptance
 release-artifacts: cross        # cross-compiles all targets (ReleaseSmall/ReleaseSafe)
 
