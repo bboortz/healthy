@@ -43,7 +43,7 @@ docs/
   CAPABILITIES.md           — capability matrix; bidirectional links to tests
 .github/workflows/
   ci.yml                    — stratified CI: fast-check / full-check / release-check
-  release.yml               — manual workflow_dispatch: dev → main + tag v<VERSION>
+  ci-release.yml            — manual workflow_dispatch: dev → main + tag v<VERSION>
 .pre-commit-config.yaml     — commit-msg + pre-commit (fast) + pre-push (full gate)
 VERSION                     — semver; bumped per push (pre-push verifies)
 CHANGELOG.md                — Keep-a-Changelog; entry per VERSION required
@@ -77,7 +77,7 @@ Full gate matrix: `memory/workflow.md`. Story process & 9 questions: `docs/stori
 ## Git workflow (HC-002)
 
 - Work branches off `dev` — the integration branch. `main` is CI-promoted-only.
-- PRs target `dev`. Promotion `dev` → `main` + tag `v<VERSION>` happens via `.github/workflows/release.yml` on a manual `workflow_dispatch`.
+- PRs target `dev`. Promotion `dev` → `main` + tag `v<VERSION>` happens via `.github/workflows/ci-release.yml` on a manual `workflow_dispatch`.
 - Commit format: `<type>[(<scope>)]: <description>` — enforced by pre-commit's `commit-msg` stage (`scripts/check-commit-msg.sh`).
 - Merge commits (not squash) preserve the PR boundary.
 - PR title under 70 chars, same format as commits, no trailing period.

@@ -1,33 +1,208 @@
 ---
-# Dev-cycle contract (SH-014) — tier 3: release promotion.
-# Budget: 15 minutes wall-clock. NO new build may start here.
-# Fast-forward dev -> main; tag; publish images/sigs in parallel.
+# HC-002: gated auto-promotion of dev → main + tag v<VERSION>.
 #
-# Copy from https://github.com/bboortz/shepherd/blob/main/templates/ci-release.yml
-# Spec: https://github.com/bboortz/shepherd/blob/main/docs/specs/dev-cycle-contract.md
+# Trigger: workflow_dispatch (manual button). The review step the user does
+# before clicking "Run workflow" is the gate; the workflow itself is mechanics.
+#
+# Does:
+#   1. Checkout dev HEAD.
+#   2. Assert the latest CI run on dev's HEAD is green on the "Full check (make check)" job.
+#   3. Fast-forward main from dev.
+#   4. Tag v<VERSION> (reads from VERSION file).
+#   5. Push main + tag.
+#
+# Fails loudly if CI on dev is red / not-yet-run (prevents the
+# "operator clicked faster than CI finished" trap).
+
 name: ci-release
 
 "on":
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch to promote (default: dev)"
+        default: "dev"
+        required: false
+        type: string
 
 permissions:
-  contents: write
-  packages: write
+  contents: write  # fast-forward main + push tag
+  checks: read     # gh api repos/.../check-runs — "Full check" assertion
 
 jobs:
-  release:
+  promote:
+    name: Promote dev → main + tag
     runs-on: ubuntu-latest
-    timeout-minutes: 15    # hard budget cap (SH-014).
+    timeout-minutes: 15    # SH-039: contract budget for ci-release tier
+    outputs:
+      version: ${{ steps.vars.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          ref: dev       # SH-029: ci-release promotes dev → main; must start on dev
           fetch-depth: 0
+          # Default GITHUB_TOKEN has contents:write and can push to unprotected
+          # branches. If main gets branch protection later, swap to a PAT:
+          # token: ${{ secrets.GH_PAT }}
 
-      - name: Configure git for FF-promote (SH-029)
+      - name: Fetch HEAD of ${{ inputs.ref }}
+        id: vars
+        shell: bash
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin ${{ inputs.ref }}:promote-src --force
+          echo "SRC_SHA=$(git rev-parse promote-src)" >> "$GITHUB_ENV"
+          VERSION=$(git show promote-src:VERSION | tr -d '[:space:]')
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "version=$VERSION"  >> "$GITHUB_OUTPUT"
 
-      - name: Run release-tier promotion (FF dev → main + tag)
-        run: make ci-release
+      - name: Assert CI is green on ${{ inputs.ref }} HEAD
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The source-of-truth filter lives in scripts/latest-ci-status.jq.
+          # Picks the latest NON-skipped "Full check (make check)" run so the
+          # mixed-topology case (dev-push success + main-push skip on the
+          # same SHA) resolves correctly. See HC-003.
+          STATUS=$(gh api "repos/${{ github.repository }}/commits/${SRC_SHA}/check-runs" \
+            | jq -r -f scripts/latest-ci-status.jq)
+          if [[ "$STATUS" != "success" ]]; then
+            echo "::error::CI on ${SRC_SHA:0:8} not green (status=${STATUS}). Wait for CI to pass before promoting."
+            exit 1
+          fi
+          echo "✓ CI green on ${SRC_SHA:0:8}"
+
+      - name: Fast-forward main from ${{ inputs.ref }}
+        shell: bash
+        run: |
+          git config user.name  "healthy-release-bot"
+          git config user.email "release-bot@healthy.local"
+          git fetch origin main
+          git checkout main
+          git merge --ff-only promote-src
+          git push origin main
+
+      - name: Tag v${{ env.VERSION }}
+        shell: bash
+        run: |
+          if git rev-parse --verify "v${VERSION}" >/dev/null 2>&1; then
+            echo "::warning::Tag v${VERSION} already exists — skipping tag step."
+          else
+            git tag -a "v${VERSION}" -m "release ${VERSION}" "${SRC_SHA}"
+            git push origin "v${VERSION}"
+            echo "✓ Tagged v${VERSION}"
+          fi
+
+      - name: Summary
+        shell: bash
+        run: |
+          {
+            echo "## Promoted"
+            echo "- Source: \`${{ inputs.ref }}\` @ \`${SRC_SHA:0:8}\`"
+            echo "- Version: \`${VERSION}\`"
+            echo "- Tag: \`v${VERSION}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # HC-005: publish hc as a multi-arch GHCR image (amd64 + arm64).
+  # Runs only after promote succeeded so we always publish a promoted SHA.
+  publish-image:
+    name: Publish ghcr.io/${{ github.repository_owner }}/hc:${{ needs.promote.outputs.version }}
+    needs: promote
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/hc
+      VERSION: ${{ needs.promote.outputs.version }}
+    steps:
+      - name: Checkout main (just-promoted SHA)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+
+      # HC-007: Zig toolchain + source compile happen inside the Dockerfile's
+      # builder stage (ghcr.io/bboortz/forge-builder-zig-trixie). The runner
+      # no longer needs any host-side Zig install or binary pre-build —
+      # docker buildx does everything via the multi-stage Dockerfile.
+
+      - name: Set up Docker buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069  # v4.4.1
+
+      - name: Log into GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550  # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute tag aliases
+        id: tags
+        shell: bash
+        run: |
+          # Semver split: 0.1.2 → major=0, major_minor=0.1
+          major=$(echo "$VERSION" | cut -d. -f1)
+          minor=$(echo "$VERSION" | cut -d. -f2)
+          {
+            echo "version=$VERSION"
+            echo "major_minor=$major.$minor"
+            echo "major=$major"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build + push amd64 (from source via forge builder)
+        shell: bash
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --build-arg ZIG_TARGET=x86_64-linux \
+            --build-arg GIT_SHA="${GITHUB_SHA}" \
+            --build-arg BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --tag "$IMAGE:${{ steps.tags.outputs.version }}-amd64" \
+            --push \
+            .
+
+      - name: Build + push arm64 (from source via forge builder)
+        shell: bash
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --build-arg ZIG_TARGET=aarch64-linux \
+            --build-arg GIT_SHA="${GITHUB_SHA}" \
+            --build-arg BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --tag "$IMAGE:${{ steps.tags.outputs.version }}-arm64" \
+            --push \
+            .
+
+      - name: Create + push multi-arch manifest lists
+        shell: bash
+        run: |
+          # One manifest list per moving alias. All point at the same pair of
+          # single-platform digests; aliases differ only in the tag name.
+          for tag in \
+            "$IMAGE:${{ steps.tags.outputs.version }}" \
+            "$IMAGE:${{ steps.tags.outputs.major_minor }}" \
+            "$IMAGE:${{ steps.tags.outputs.major }}" \
+            "$IMAGE:latest"
+          do
+            echo "→ $tag"
+            docker buildx imagetools create \
+              --tag "$tag" \
+              "$IMAGE:${{ steps.tags.outputs.version }}-amd64" \
+              "$IMAGE:${{ steps.tags.outputs.version }}-arm64"
+          done
+
+      - name: Summary
+        shell: bash
+        run: |
+          {
+            echo "## Published"
+            echo "- \`$IMAGE:${{ steps.tags.outputs.version }}\` (versioned, immutable pin recommended)"
+            echo "- \`$IMAGE:${{ steps.tags.outputs.major_minor }}\` (patch-level alias)"
+            echo "- \`$IMAGE:${{ steps.tags.outputs.major }}\` (minor-level alias)"
+            echo "- \`$IMAGE:latest\` (most-recent tagged release)"
+            echo ""
+            echo "Downstream:"
+            echo "\`\`\`dockerfile"
+            echo "COPY --from=$IMAGE:${{ steps.tags.outputs.version }} /hc /hc"
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
