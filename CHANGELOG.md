@@ -4,6 +4,23 @@ All notable changes to `healthy` are recorded here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and this project follows
 [Semantic Versioning](https://semver.org/).
 
+## [v0.7.2] — 2026-11-22
+
+### Added
+
+- **SH-029 fleet branching convergence (HC-010).** Adds `ci-release-promote` Makefile target (FF main to dev + tag from VERSION) + `.github/workflows/ci-release.yml` (SHA-pinned, `ref: dev` checkout, 15-min cap). Mirrors shepherd's shared contract. Post-merge: operator flips GitHub default branch to `dev`. Existing build / test / cross / lint / check recipes unchanged. New CAP `shepherd.branching-convergence`.
+
+## [v0.2.3] — 2026-11-22
+
+### Added
+
+- **Shepherd dev-cycle contract (HC-009).** Makefile exposes eight canonical contract targets (`build`, `test`, `test-affected`, `smoke`, `release-artifacts`, `ci-branch`, `ci-patch`, `ci-release`, `ci-nightly`). Healthy becomes the reference implementation of the shared shape per SH-014 / SH-019 / SH-025 ([shepherd PR #23](https://github.com/bboortz/shepherd/pull/23)). All new targets are additive aliases; zero behaviour change. New CAP `build.shepherd-contract`.
+
+
+All notable changes to `healthy` are recorded here. The format is based on
+[Keep a Changelog](https://keepachangelog.com/) and this project follows
+[Semantic Versioning](https://semver.org/).
+
 ## [v0.2.2] — 2026-11-21
 
 ### Changed
