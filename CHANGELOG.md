@@ -4,6 +4,12 @@ All notable changes to `healthy` are recorded here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and this project follows
 [Semantic Versioning](https://semver.org/).
 
+## [v0.7.3] — 2026-11-23
+
+### Added
+
+- **SH-042 hook-commit + hook-push fleet tiers (HC-011).** Adds two canonical fleet-tier Makefile wrappers — `hook-commit` (~15 s commit-stage gate) and `hook-push` (~2 min push-stage gate). Repo-native step names stay in `COMMIT_STEPS` (`zig-fmt shell-lint verify-traceability`) and `PUSH_STEPS` (`build test verify-version-bumped verify-changelog`); the wrappers only depend on them. No step renames, no step moves, strictly additive. Mirrors shepherd's shared contract (PR #51, SH-042). New CAPs `shepherd.hook-commit`, `shepherd.hook-push`.
+
 ## [v0.7.2] — 2026-11-22
 
 ### Added
