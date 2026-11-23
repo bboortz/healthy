@@ -4,6 +4,12 @@ All notable changes to `healthy` are recorded here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and this project follows
 [Semantic Versioning](https://semver.org/).
 
+## [v0.7.4] — 2026-11-23
+
+### Fixed
+
+- **ci-patch artifact-absent fallback.** When `release-sha-<commit>` isn't present (e.g. a `ci-release` promotion that bypassed `ci-branch`, or any commit without a prior PR), ci-patch now installs Zig 0.17.1 via pipx so `make ci-patch → smoke → test → build` can rebuild locally instead of failing with `zig: not found` (exit 127). Preserves build-once-promote when the artifact IS present; falls back gracefully when it's not. Root cause of run 45248730845 and three prior failures on `dev`.
+
 ## [v0.7.3] — 2026-11-23
 
 ### Added
