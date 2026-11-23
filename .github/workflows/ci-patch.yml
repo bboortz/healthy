@@ -25,15 +25,32 @@ jobs:
 
       # Build-once-promote (SH-014): download the artifact produced by
       # ci-branch at ${{ github.sha }}. If the artifact is missing (eg. a
-      # fresh branch with no prior PR), the step soft-fails and `make smoke`
-      # runs against the current checkout. For image repos, override `smoke`
-      # to `docker pull ghcr.io/<repo>:sha-<commit>` instead.
+      # fresh branch with no prior PR, or a ci-release promotion that
+      # bypassed ci-branch), the step soft-fails and `make ci-patch` falls
+      # back to a local build via `smoke → test → build`. For image repos,
+      # override `smoke` to `docker pull ghcr.io/<repo>:sha-<commit>`
+      # instead.
       - name: Download release artifacts from ci-branch
         continue-on-error: true
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           name: release-sha-${{ github.sha }}
           path: build/release/
+
+      # Healthy's `smoke` currently depends on `test → build`, which needs
+      # Zig. Until `smoke` is decoupled from `build` (contract-correct:
+      # ci-patch "never calls build"), install Zig so the fallback path
+      # works when the artifact is absent. No-op cost when the artifact is
+      # present — pipx install is < 5s on a cold runner.
+      - name: Install Zig 0.17.1 via pipx (fallback build)
+        shell: bash
+        run: |
+          pipx install 'ziglang==0.17.1'
+          PIPX_BIN=$(pipx environment --value PIPX_BIN_DIR)
+          mkdir -p "$HOME/.local/bin"
+          ln -sf "$PIPX_BIN/python-zig" "$HOME/.local/bin/zig"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/zig" version
 
       - name: Run patch-tier gate
         run: make ci-patch
