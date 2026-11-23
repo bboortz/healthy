@@ -4,6 +4,12 @@ All notable changes to `healthy` are recorded here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and this project follows
 [Semantic Versioning](https://semver.org/).
 
+## [v0.7.5] — 2026-11-23
+
+### Added
+
+- **SH-055 check-docs fleet-tier wrapper (HC-012).** Adds a `check-docs` Makefile target that delegates to healthy's three existing docs-drift targets (`verify-traceability`, `verify-version-bumped`, `verify-changelog`). Purely additive — no new logic, no step renames. Added to `PUSH_STEPS` (near front) and to a new `BRANCH_STEPS` variable so pre-push + ci-branch both exercise docs drift. Mirrors shepherd's shared contract (PR #58, SH-055). New CAP `shepherd.check-docs`.
+
 ## [v0.7.4] — 2026-11-23
 
 ### Fixed

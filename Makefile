@@ -37,6 +37,7 @@ ACCEPTANCE_TESTS := $(wildcard test/acceptance/test_HC_*.sh)
 
 .PHONY: help tools build cross test test-acceptance lint zig-fmt shell-lint \
         verify-traceability verify-version-bumped verify-changelog \
+        check-docs \
         size check install-hooks clean distclean
 
 help:
@@ -176,6 +177,10 @@ verify-version-bumped:
 verify-changelog:
 	@bash scripts/verify-changelog.sh
 
+# SH-055 — fleet-wide check-docs wrapper (shepherd ref: PR #58).
+# Delegates to healthy's existing docs-drift targets; no new logic.
+check-docs: verify-traceability verify-version-bumped verify-changelog
+
 size: build
 	@echo "→ size budget (KB, stripped)"
 	@tls_size=$$(stat -c%s $(OUT)); tls_kb=$$(( tls_size / 1024 )); \
@@ -277,7 +282,8 @@ ci-nightly-body: check           # nightly: lint + verify-traceability (healthy'
 #   hook-push    ~2m  push-stage gate    (pre-push)
 
 COMMIT_STEPS ?= zig-fmt shell-lint verify-traceability
-PUSH_STEPS   ?= build test verify-version-bumped verify-changelog
+PUSH_STEPS   ?= check-docs build test verify-version-bumped verify-changelog
+BRANCH_STEPS ?= lint check-docs test cross
 
 .PHONY: hook-commit hook-push
 hook-commit: $(COMMIT_STEPS)

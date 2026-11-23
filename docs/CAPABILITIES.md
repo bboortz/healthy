@@ -458,3 +458,10 @@ Healthy's `Makefile` exposes the `hook-push` fleet-tier wrapper (`~2m` push-stag
 
 - **Delivered by**: HC-011
 - **Covered by**: `test/acceptance/test_HC_011_hook_tiers.sh`
+
+### shepherd.check-docs
+
+Healthy's `Makefile` exposes the `check-docs` fleet-tier wrapper, which delegates to healthy's three existing docs-drift targets (`verify-traceability`, `verify-version-bumped`, `verify-changelog`). Added to `PUSH_STEPS` (near front, after lint-ish steps) and to a new `BRANCH_STEPS` variable, so pre-push + ci-branch both exercise docs drift. Purely additive — no new logic. Mirrors shepherd SH-055. Spec: <https://github.com/bboortz/shepherd/blob/main/docs/stories/SH-055-check-docs.md>.
+
+- **Delivered by**: HC-012
+- **Covered by**: `test/acceptance/test_HC_012_check_docs.sh`

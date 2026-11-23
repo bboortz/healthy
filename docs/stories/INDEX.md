@@ -15,6 +15,7 @@ One line per story. Keep sorted by HC id. Status: `draft → ready → in-progre
 | HC-009  | sh019-contract-adoption | Adopt shepherd dev-cycle contract (reference impl) | shipped      | 2026-11-22 | 2026-11-22 |
 | HC-010  | sh029-branching-convergence | Adopt feat/* → dev → main convergence | shipped      | 2026-11-22 | 2026-11-22 |
 | HC-011  | sh042-hook-tiers | Adopt hook-commit + hook-push fleet tiers | in-progress  | 2026-11-23 | — |
+| HC-012  | sh055-check-docs | Adopt check-docs fleet-tier wrapper | in-progress  | 2026-11-23 | — |
 
 Templates: [`_template.md`](_template.md), [`_9-questions.md`](_9-questions.md).
 
