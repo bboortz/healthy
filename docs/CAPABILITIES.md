@@ -444,3 +444,17 @@ Healthy adopts the fleet-wide `feat/* → dev → main` branching with `default=
 
 - **Delivered by**: HC-010
 - **Covered by**: inspection of `make -n ci-release` + `.github/workflows/ci-release.yml` (`ref: dev` + SHA-pinned actions).
+
+### shepherd.hook-commit
+
+Healthy's `Makefile` exposes the `hook-commit` fleet-tier wrapper (`~15s` commit-stage gate). Repo-native step targets stay in the `COMMIT_STEPS` variable (`zig-fmt shell-lint verify-traceability`); the wrapper only depends on them, so repos with different native names stay compatible with the shared hook contract. Mirrors shepherd SH-042. Spec: <https://github.com/bboortz/shepherd/blob/main/docs/stories/SH-042-hook-tiers.md>.
+
+- **Delivered by**: HC-011
+- **Covered by**: `test/acceptance/test_HC_011_hook_tiers.sh`
+
+### shepherd.hook-push
+
+Healthy's `Makefile` exposes the `hook-push` fleet-tier wrapper (`~2m` push-stage gate). Repo-native step targets stay in the `PUSH_STEPS` variable (`build test verify-version-bumped verify-changelog`); the wrapper only depends on them. Mirrors shepherd SH-042. Spec: <https://github.com/bboortz/shepherd/blob/main/docs/stories/SH-042-hook-tiers.md>.
+
+- **Delivered by**: HC-011
+- **Covered by**: `test/acceptance/test_HC_011_hook_tiers.sh`

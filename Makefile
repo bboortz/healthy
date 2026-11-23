@@ -264,3 +264,21 @@ ci-release: ci-release-promote
 
 ci-nightly: ci-nightly-body
 ci-nightly-body: check           # nightly: lint + verify-traceability (healthy's existing full check)
+
+##@ Shepherd fleet-tier hook wrappers (SH-042)
+#
+# Spec: https://github.com/bboortz/shepherd/blob/main/docs/stories/SH-042-hook-tiers.md
+#
+# Canonical fleet entry points for git hooks. Repo-native step names stay in
+# COMMIT_STEPS / PUSH_STEPS; the wrappers only depend on them. No step
+# renames, no step moves — this is purely additive naming.
+#
+#   hook-commit  ~15s commit-stage gate  (pre-commit)
+#   hook-push    ~2m  push-stage gate    (pre-push)
+
+COMMIT_STEPS ?= zig-fmt shell-lint verify-traceability
+PUSH_STEPS   ?= build test verify-version-bumped verify-changelog
+
+.PHONY: hook-commit hook-push
+hook-commit: $(COMMIT_STEPS)
+hook-push:   $(PUSH_STEPS)

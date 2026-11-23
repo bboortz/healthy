@@ -12,6 +12,9 @@ One line per story. Keep sorted by HC id. Status: `draft → ready → in-progre
 | HC-006  | idle-mode | `hc idle` sigwait sentinel for PID 1 | shipped      | 2026-11-08 | 2026-11-08 |
 | HC-007  | build-from-source | Dockerfile builds `hc` from source via forge builder (FG-072) | shipped      | 2026-11-08 | 2026-11-20 |
 | HC-008  | shepherd-poc    | Shepherd POC (Release 0) on `healthy` | in-progress  | 2026-11-21 | — |
+| HC-009  | sh019-contract-adoption | Adopt shepherd dev-cycle contract (reference impl) | shipped      | 2026-11-22 | 2026-11-22 |
+| HC-010  | sh029-branching-convergence | Adopt feat/* → dev → main convergence | shipped      | 2026-11-22 | 2026-11-22 |
+| HC-011  | sh042-hook-tiers | Adopt hook-commit + hook-push fleet tiers | in-progress  | 2026-11-23 | — |
 
 Templates: [`_template.md`](_template.md), [`_9-questions.md`](_9-questions.md).
 
