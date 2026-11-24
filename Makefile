@@ -37,6 +37,7 @@ ACCEPTANCE_TESTS := $(wildcard test/acceptance/test_HC_*.sh)
 
 .PHONY: help tools build cross test test-acceptance lint zig-fmt shell-lint \
         verify-traceability verify-version-bumped verify-changelog \
+        verify-index-status \
         check-docs \
         size check install-hooks clean distclean
 
@@ -177,9 +178,15 @@ verify-version-bumped:
 verify-changelog:
 	@bash scripts/verify-changelog.sh
 
+# SH-056 — INDEX ↔ frontmatter status drift (shepherd ref: PR #59).
+# Byte-identical to shepherd/scripts/verify-index-status.sh.
+verify-index-status:
+	@scripts/verify-index-status.sh
+
 # SH-055 — fleet-wide check-docs wrapper (shepherd ref: PR #58).
 # Delegates to healthy's existing docs-drift targets; no new logic.
-check-docs: verify-traceability verify-version-bumped verify-changelog
+# SH-056 adds verify-index-status at the front.
+check-docs: verify-index-status verify-traceability verify-version-bumped verify-changelog
 
 size: build
 	@echo "→ size budget (KB, stripped)"

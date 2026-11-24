@@ -4,6 +4,12 @@ All notable changes to `healthy` are recorded here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and this project follows
 [Semantic Versioning](https://semver.org/).
 
+## [v0.7.6] — 2026-11-24
+
+### Added
+
+- **SH-056 verify-index-status script + check-docs wiring (HC-013).** Ships `scripts/verify-index-status.sh` byte-identical to shepherd's reference (PR #59, SH-056) — catches `docs/stories/INDEX.md` row status ≠ story frontmatter status, and missing INDEX rows for shipped+ stories. New `verify-index-status` Makefile target wired into `check-docs` prerequisites (front position; cheap check fails fast). INDEX.md reshaped to shepherd's shared `| ID | Status | Slug | Title |` column order so the shared script's status-column parser works byte-identically. Stale frontmatter for HC-009..HC-012 synced to `shipped` (their ship commits already exist on `main`/`dev`). New CAP `shepherd.verify-index-status`.
+
 ## [v0.7.5] — 2026-11-23
 
 ### Added

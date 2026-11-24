@@ -1,8 +1,9 @@
 ---
 id: HC-011
 slug: sh042-hook-tiers
-status: ready
+status: shipped
 created: 2026-11-23
+shipped: 2026-11-23
 ---
 
 # HC-011 — Adopt shepherd hook-commit + hook-push fleet tiers
