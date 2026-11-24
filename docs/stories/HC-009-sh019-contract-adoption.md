@@ -1,8 +1,9 @@
 ---
 id: HC-009
 slug: sh019-contract-adoption
-status: ready
+status: shipped
 created: 2026-11-22
+shipped: 2026-11-22
 ---
 
 # HC-009 — Adopt shepherd dev-cycle contract (become the reference implementation)

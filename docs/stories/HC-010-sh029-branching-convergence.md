@@ -1,8 +1,9 @@
 ---
 id: HC-010
 slug: sh029-branching-convergence
-status: ready
+status: shipped
 created: 2026-11-22
+shipped: 2026-11-22
 ---
 
 # HC-010 — Adopt feat/* → dev → main convergence (default branch = dev)

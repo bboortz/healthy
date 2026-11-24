@@ -1,8 +1,9 @@
 ---
 id: HC-012
 slug: sh055-check-docs
-status: ready
+status: shipped
 created: 2026-11-23
+shipped: 2026-11-23
 ---
 
 # HC-012 — Adopt shepherd check-docs fleet-tier wrapper

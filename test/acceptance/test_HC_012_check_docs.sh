@@ -30,7 +30,8 @@ if grep -qE '^check-docs:' Makefile; then pass=$((pass + 1))
 else fail=$((fail + 1)); echo "FAIL check-docs: target not declared in Makefile"; fi
 
 # Healthy's delegate chain: verify-traceability + verify-version-bumped + verify-changelog.
-if grep -qE '^check-docs: verify-traceability' Makefile; then pass=$((pass + 1))
+# HC-013 (SH-056) adds verify-index-status at the front — match anywhere in the prerequisite list.
+if grep -qE '^check-docs:.* verify-traceability' Makefile; then pass=$((pass + 1))
 else fail=$((fail + 1)); echo "FAIL check-docs doesn't declare verify-traceability as prerequisite"; fi
 
 if grep -qE '^check-docs:.* verify-version-bumped' Makefile; then pass=$((pass + 1))

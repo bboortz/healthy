@@ -465,3 +465,10 @@ Healthy's `Makefile` exposes the `check-docs` fleet-tier wrapper, which delegate
 
 - **Delivered by**: HC-012
 - **Covered by**: `test/acceptance/test_HC_012_check_docs.sh`
+
+### shepherd.verify-index-status
+
+Healthy ships `scripts/verify-index-status.sh` byte-identical to shepherd's reference (SH-056), surfaced via a `verify-index-status` Makefile target, and wired into the `check-docs` prerequisite list (near the front). Catches the drift class SH-055 named but did not implement: `docs/stories/INDEX.md` row status ≠ story frontmatter status, and missing INDEX rows for shipped+ stories. Mirrors shepherd SH-056. Spec: <https://github.com/bboortz/shepherd/blob/main/docs/stories/SH-056-verify-index-status.md>.
+
+- **Delivered by**: HC-013
+- **Covered by**: `test/acceptance/test_HC_013_verify_index_status.sh`
