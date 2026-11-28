@@ -4,6 +4,12 @@ All notable changes to `healthy` are recorded here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/) and this project follows
 [Semantic Versioning](https://semver.org/).
 
+## [v0.7.7] — 2026-11-28 — chore: re-pin shepherd caller to v0.12.0-rc1
+
+### Changed
+
+- Re-pinned `shepherd.yml` + `shepherd-gates.yml` reusable-workflow refs from `a0733f7` to `4b32deb` (shepherd v0.12.0-rc1). Fleet-audit pin-freshness drift; brings healthy up to the current shepherd Action (SH-057 fleet-audit + SH-058 verify-shipped-status era).
+
 ## [v0.7.6] — 2026-11-24
 
 ### Added
